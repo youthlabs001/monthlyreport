@@ -8,6 +8,9 @@ let currentMonthSalesEl, lastMonthSalesEl, yearTotalSalesEl, avgMonthlySalesEl, 
 // Insight Elements
 let selectedYearsEl, growthTitleEl, growthDescriptionEl, peakTitleEl, peakDescriptionEl, peakMonthEl, insightsContentEl;
 
+// Modal Elements
+let detailModal, modalTitle, modalBody, modalClose;
+
 // 현재 사용자 정보
 let currentUser = null;
 let salesChart = null;
@@ -18,8 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DOM 요소 초기화
     initDOMElements();
     
-    // 로그아웃 버튼 이벤트 설정 (가장 먼저)
-    setupLogout();
+    // 이벤트 리스너 설정
+    setupEventListeners();
     
     await checkAuth();
     await loadAllSalesData();
@@ -52,6 +55,85 @@ function initDOMElements() {
     peakDescriptionEl = document.getElementById('peakDescription');
     peakMonthEl = document.getElementById('peakMonth');
     insightsContentEl = document.getElementById('insightsContent');
+    
+    // 모달 요소
+    detailModal = document.getElementById('detailModal');
+    modalTitle = document.getElementById('modalTitle');
+    modalBody = document.getElementById('modalBody');
+    modalClose = document.getElementById('modalClose');
+}
+
+// 이벤트 리스너 설정
+function setupEventListeners() {
+    // 로그아웃 버튼
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('로그아웃 버튼 클릭됨');
+            
+            try {
+                this.disabled = true;
+                this.textContent = '로그아웃 중...';
+                
+                const { error } = await supabaseClient.auth.signOut();
+                
+                if (error) {
+                    console.error('로그아웃 오류:', error);
+                    alert('로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.');
+                    this.disabled = false;
+                    this.textContent = '로그아웃';
+                    return;
+                }
+                
+                console.log('로그아웃 성공, 페이지 이동');
+                window.location.replace('index.html');
+            } catch (err) {
+                console.error('로그아웃 예외:', err);
+                alert('로그아웃 중 오류가 발생했습니다.');
+                this.disabled = false;
+                this.textContent = '로그아웃';
+            }
+        });
+    }
+    
+    // 연도 필터 변경
+    if (yearFilter) {
+        yearFilter.addEventListener('change', async () => {
+            await loadSalesData();
+        });
+    }
+    
+    // 카테고리 필터 변경
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', async () => {
+            await loadSalesData();
+        });
+    }
+    
+    // 비교 버튼 클릭
+    if (compareBtn) {
+        compareBtn.addEventListener('click', () => {
+            updateChart();
+            updateInsights();
+        });
+    }
+    
+    // 모달 닫기
+    if (modalClose) {
+        modalClose.addEventListener('click', () => {
+            detailModal.classList.remove('active');
+        });
+    }
+    
+    if (detailModal) {
+        detailModal.addEventListener('click', (e) => {
+            if (e.target === detailModal) {
+                detailModal.classList.remove('active');
+            }
+        });
+    }
 }
 
 // 인증 확인
@@ -67,61 +149,6 @@ async function checkAuth() {
     userEmailEl.textContent = currentUser.email;
     companyNameEl.textContent = currentUser.user_metadata?.company_name || '고객';
 }
-
-// 로그아웃 설정
-function setupLogout() {
-    if (!logoutBtn) {
-        console.error('로그아웃 버튼을 찾을 수 없습니다.');
-        return;
-    }
-    
-    logoutBtn.addEventListener('click', async function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        console.log('로그아웃 버튼 클릭됨');
-        
-        try {
-            this.disabled = true;
-            this.textContent = '로그아웃 중...';
-            
-            const { error } = await supabaseClient.auth.signOut();
-            
-            if (error) {
-                console.error('로그아웃 오류:', error);
-                alert('로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.');
-                this.disabled = false;
-                this.textContent = '로그아웃';
-                return;
-            }
-            
-            console.log('로그아웃 성공, 페이지 이동');
-            // 로그아웃 성공 시 로그인 페이지로 이동
-            window.location.replace('index.html');
-        } catch (err) {
-            console.error('로그아웃 예외:', err);
-            alert('로그아웃 중 오류가 발생했습니다.');
-            this.disabled = false;
-            this.textContent = '로그아웃';
-        }
-    });
-}
-
-// 연도 필터 변경 시
-yearFilter.addEventListener('change', async () => {
-    await loadSalesData();
-});
-
-// 카테고리 필터 변경 시
-categoryFilter.addEventListener('change', async () => {
-    await loadSalesData();
-});
-
-// 비교 버튼 클릭
-compareBtn.addEventListener('click', () => {
-    updateChart();
-    updateInsights();
-});
 
 // 모든 연도의 매출 데이터 로드
 async function loadAllSalesData() {
@@ -394,23 +421,6 @@ function updateStats(data) {
     const avgSales = monthsWithData > 0 ? yearTotal / monthsWithData : 0;
     avgMonthlySalesEl.textContent = formatCurrency(avgSales);
 }
-
-// 모달 요소
-const detailModal = document.getElementById('detailModal');
-const modalTitle = document.getElementById('modalTitle');
-const modalBody = document.getElementById('modalBody');
-const modalClose = document.getElementById('modalClose');
-
-// 모달 닫기
-modalClose.addEventListener('click', () => {
-    detailModal.classList.remove('active');
-});
-
-detailModal.addEventListener('click', (e) => {
-    if (e.target === detailModal) {
-        detailModal.classList.remove('active');
-    }
-});
 
 // 차트 초기화
 function initChart() {
