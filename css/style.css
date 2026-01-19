@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Noto Sans KR', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: white;
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -253,7 +253,7 @@ body {
 /* Dashboard Layout */
 .dashboard-container {
     min-height: 100vh;
-    background: #f5f7fb;
+    background: white;
 }
 
 /* Header */
@@ -350,7 +350,7 @@ body {
 }
 
 .stat-card .value {
-    font-size: 32px;
+    font-size: 22px;
     font-weight: 700;
     color: #1e293b;
     margin-bottom: 8px;
@@ -434,6 +434,31 @@ body {
 }
 
 .data-table .amount {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.data-table .category-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #e0e7ff;
+    color: #4338ca;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.table-summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 28px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    font-size: 14px;
+    color: #64748b;
+}
+
+.table-summary .summary-amount {
     font-weight: 600;
     color: #1e293b;
 }

@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monthly Report - 대시보드</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard-chart.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -24,8 +28,47 @@
         <main class="dashboard-content">
             <!-- Welcome Section -->
             <section class="welcome-section">
-                <h2>안녕하세요, <span id="companyName">고객</span>님!</h2>
-                <p>매출 현황을 확인하세요.</p>
+                <h2><span id="companyName">고객</span> <span id="selectedYears">2024-2025</span> 매출 동향 비교</h2>
+                <p>매출 현황과 주요 인사이트를 확인하세요.</p>
+            </section>
+            
+            <!-- Insights Section -->
+            <section class="insights-section">
+                <div class="insight-card growth">
+                    <div class="insight-badge">📈 연간 매출 성장</div>
+                    <h3 id="growthTitle">연간 총 매출 분석</h3>
+                    <p id="growthDescription">데이터를 불러오는 중...</p>
+                </div>
+                <div class="insight-card highlight">
+                    <div class="insight-badge">🏆 월별 매출 최고점</div>
+                    <h3 id="peakTitle">최고 매출 월</h3>
+                    <p id="peakDescription">데이터를 불러오는 중...</p>
+                    <div class="insight-icon" id="peakMonth">-월</div>
+                </div>
+            </section>
+            
+            <!-- Chart Section -->
+            <section class="chart-section">
+                <div class="section-header">
+                    <h3 id="chartTitle">월별 매출 비교 (단위: 원)</h3>
+                    <div class="filter-group">
+                        <select id="compareYear1">
+                            <option value="2024">2024년</option>
+                            <option value="2025" selected>2025년</option>
+                            <option value="2026">2026년</option>
+                        </select>
+                        <span class="vs-text">vs</span>
+                        <select id="compareYear2">
+                            <option value="2024" selected>2024년</option>
+                            <option value="2025">2025년</option>
+                            <option value="2026">2026년</option>
+                        </select>
+                        <button class="compare-btn" id="compareBtn">비교하기</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="salesChart"></canvas>
+                </div>
             </section>
             
             <!-- Stats Cards -->
@@ -52,11 +95,27 @@
                 </div>
             </section>
             
+            <!-- Additional Insights -->
+            <section class="insights-detail-section">
+                <div class="section-header">
+                    <h3>📊 상세 분석 리포트</h3>
+                </div>
+                <div class="insights-content" id="insightsContent">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </section>
+            
             <!-- Monthly Report Table -->
             <section class="report-section">
                 <div class="section-header">
                     <h3>월별 매출 현황</h3>
                     <div class="filter-group">
+                        <select id="categoryFilter">
+                            <option value="summary">월별 합계</option>
+                            <option value="all">전체 (종류별 상세)</option>
+                        </select>
                         <select id="yearFilter">
                             <option value="2026">2026년</option>
                             <option value="2025">2025년</option>
@@ -74,8 +133,23 @@
         </main>
     </div>
 
+    <!-- 상세 매출 모달 -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">2025년 12월 매출 상세</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/dashboard.js"></script>
 </body>

@@ -42,6 +42,30 @@ CREATE POLICY "Users can update own sales reports"
     FOR UPDATE 
     USING (auth.uid() = user_id);
 
+-- 관리자는 모든 데이터 조회 가능
+CREATE POLICY "Admin can view all sales reports" 
+    ON sales_reports 
+    FOR SELECT 
+    USING (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+
+-- 관리자는 모든 데이터 삽입 가능
+CREATE POLICY "Admin can insert all sales reports" 
+    ON sales_reports 
+    FOR INSERT 
+    WITH CHECK (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+
+-- 관리자는 모든 데이터 수정 가능
+CREATE POLICY "Admin can update all sales reports" 
+    ON sales_reports 
+    FOR UPDATE 
+    USING (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+
+-- 관리자는 모든 데이터 삭제 가능
+CREATE POLICY "Admin can delete all sales reports" 
+    ON sales_reports 
+    FOR DELETE 
+    USING (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+
 -- 4. updated_at 자동 업데이트 트리거
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

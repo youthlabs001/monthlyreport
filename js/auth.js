@@ -7,7 +7,7 @@ const loginBtn = document.querySelector('.login-btn');
 
 // 페이지 로드 시 로그인 상태 확인
 document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     
     if (session) {
         // 이미 로그인된 경우 대시보드로 이동
@@ -28,7 +28,7 @@ loginForm.addEventListener('submit', async (e) => {
     hideError();
     
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
             email: email,
             password: password
         });
