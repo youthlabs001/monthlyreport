@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Report - 대시보드</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="logo">
+                <h1>📊 Monthly Report</h1>
+            </div>
+            <div class="user-info">
+                <span id="userEmail">로딩 중...</span>
+                <button class="logout-btn" id="logoutBtn">로그아웃</button>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="dashboard-content">
+            <!-- Welcome Section -->
+            <section class="welcome-section">
+                <h2>안녕하세요, <span id="companyName">고객</span>님!</h2>
+                <p>매출 현황을 확인하세요.</p>
+            </section>
+            
+            <!-- Stats Cards -->
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <h3>이번 달 매출</h3>
+                    <div class="value" id="currentMonthSales">₩0</div>
+                    <div class="change" id="salesChange">전월 대비 -</div>
+                </div>
+                <div class="stat-card">
+                    <h3>지난 달 매출</h3>
+                    <div class="value" id="lastMonthSales">₩0</div>
+                    <div class="change">지난 달 실적</div>
+                </div>
+                <div class="stat-card">
+                    <h3>올해 누적 매출</h3>
+                    <div class="value" id="yearTotalSales">₩0</div>
+                    <div class="change" id="yearInfo">2026년 누적</div>
+                </div>
+                <div class="stat-card">
+                    <h3>평균 월 매출</h3>
+                    <div class="value" id="avgMonthlySales">₩0</div>
+                    <div class="change">올해 평균</div>
+                </div>
+            </section>
+            
+            <!-- Monthly Report Table -->
+            <section class="report-section">
+                <div class="section-header">
+                    <h3>월별 매출 현황</h3>
+                    <div class="filter-group">
+                        <select id="yearFilter">
+                            <option value="2026">2026년</option>
+                            <option value="2025">2025년</option>
+                            <option value="2024">2024년</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="tableContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

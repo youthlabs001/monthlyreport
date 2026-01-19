@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Report - 회원가입</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="logo">
+                <h1>📊 Monthly Report</h1>
+                <p>회원가입</p>
+            </div>
+            
+            <form id="signupForm" class="login-form">
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="이메일을 입력하세요"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="비밀번호를 입력하세요 (최소 6자)"
+                        minlength="6"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">비밀번호 확인</label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        placeholder="비밀번호를 다시 입력하세요"
+                        minlength="6"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyName">회사명</label>
+                    <input 
+                        type="text" 
+                        id="companyName" 
+                        name="companyName" 
+                        placeholder="회사명을 입력하세요"
+                        required
+                    >
+                </div>
+                
+                <button type="submit" class="login-btn">회원가입</button>
+                
+                <div class="error-message" id="errorMessage"></div>
+                <div class="success-message" id="successMessage"></div>
+            </form>
+            
+            <div class="login-footer">
+                <p>이미 계정이 있으신가요? <a href="index.html">로그인</a></p>
+            </div>
+        </div>
+        
+        <div class="login-info">
+            <h2>매출 현황을 한눈에</h2>
+            <ul>
+                <li>✓ 월별 매출 데이터 확인</li>
+                <li>✓ 직관적인 차트와 그래프</li>
+                <li>✓ 안전한 데이터 보호</li>
+                <li>✓ 언제 어디서나 접속 가능</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/signup.js"></script>
+</body>
+</html>
