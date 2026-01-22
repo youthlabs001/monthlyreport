@@ -6,7 +6,7 @@ let compareYear1, compareYear2, compareBtn;
 let currentMonthSalesEl, lastMonthSalesEl, yearTotalSalesEl, avgMonthlySalesEl, salesChangeEl;
 
 // Insight Elements
-let selectedYearsEl, growthTitleEl, growthDescriptionEl, peakTitleEl, peakDescriptionEl, peakMonthEl, insightsContentEl;
+let selectedYearsEl, growthTitleEl, growthDescriptionEl, peakTitleEl, peakDescriptionEl, peakMonthEl;
 
 // Modal Elements
 let detailModal, modalTitle, modalBody, modalClose;
@@ -54,7 +54,6 @@ function initDOMElements() {
     peakTitleEl = document.getElementById('peakTitle');
     peakDescriptionEl = document.getElementById('peakDescription');
     peakMonthEl = document.getElementById('peakMonth');
-    insightsContentEl = document.getElementById('insightsContent');
     
     // 모달 요소
     detailModal = document.getElementById('detailModal');
@@ -760,143 +759,6 @@ function updateInsights() {
         peakDescriptionEl.textContent = '데이터가 없습니다.';
         peakMonthEl.textContent = '-월';
     }
-    
-    // 상세 인사이트 생성
-    generateDetailedInsights(year1, year2, data1, data2);
-}
-
-// 상세 인사이트 생성
-function generateDetailedInsights(year1, year2, data1, data2) {
-    const insights = [];
-    
-    const total1 = data1.reduce((a, b) => a + b, 0);
-    const total2 = data2.reduce((a, b) => a + b, 0);
-    
-    // 데이터가 없는 경우
-    if (total1 === 0 && total2 === 0) {
-        insightsContentEl.innerHTML = `
-            <div class="empty-state">
-                <h4>📊 분석할 데이터가 없습니다</h4>
-                <p>매출 데이터가 등록되면 자동으로 인사이트가 생성됩니다.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    // 1. 연간 성장률
-    if (total2 > 0) {
-        const growthRate = ((total1 - total2) / total2 * 100).toFixed(1);
-        insights.push({
-            icon: growthRate >= 0 ? '📈' : '📉',
-            iconClass: growthRate >= 0 ? 'up' : 'down',
-            title: '연간 매출 성장률',
-            description: `${year1}년 매출은 전년 대비 <span class="${growthRate >= 0 ? 'highlight-positive' : 'highlight-negative'}">${growthRate >= 0 ? '+' : ''}${growthRate}%</span> ${growthRate >= 0 ? '성장' : '감소'}했습니다.`
-        });
-    }
-    
-    // 2. 최고/최저 매출 월
-    const positiveData1 = data1.filter(v => v > 0);
-    if (positiveData1.length > 0) {
-        const max1 = Math.max(...positiveData1);
-        const min1 = Math.min(...positiveData1);
-        const maxMonth1 = data1.indexOf(max1) + 1;
-        const minMonth1 = data1.indexOf(min1) + 1;
-        
-        insights.push({
-            icon: '🏆',
-            iconClass: 'star',
-            title: `${year1}년 최고 매출 월`,
-            description: `<span class="highlight-value">${maxMonth1}월</span>에 <span class="highlight-positive">${formatCurrency(max1)}</span>로 가장 높은 매출을 기록했습니다.`
-        });
-        
-        if (min1 !== max1) {
-            insights.push({
-                icon: '📍',
-                iconClass: 'info',
-                title: `${year1}년 최저 매출 월`,
-                description: `<span class="highlight-value">${minMonth1}월</span>에 <span class="highlight-negative">${formatCurrency(min1)}</span>로 가장 낮은 매출을 기록했습니다.`
-            });
-        }
-    }
-    
-    // 3. 상반기 vs 하반기 비교
-    const firstHalf1 = data1.slice(0, 6).reduce((a, b) => a + b, 0);
-    const secondHalf1 = data1.slice(6, 12).reduce((a, b) => a + b, 0);
-    
-    if (firstHalf1 > 0 || secondHalf1 > 0) {
-        const halfDiff = secondHalf1 - firstHalf1;
-        const halfPercent = firstHalf1 > 0 ? ((halfDiff / firstHalf1) * 100).toFixed(1) : 0;
-        
-        insights.push({
-            icon: '📊',
-            iconClass: 'info',
-            title: '상반기 vs 하반기',
-            description: `${year1}년 상반기 ${formatCompactCurrency(firstHalf1)}, 하반기 ${formatCompactCurrency(secondHalf1)}로 하반기가 <span class="${halfDiff >= 0 ? 'highlight-positive' : 'highlight-negative'}">${halfDiff >= 0 ? '+' : ''}${halfPercent}%</span> ${halfDiff >= 0 ? '더 높습니다.' : '더 낮습니다.'}`
-        });
-    }
-    
-    // 4. 월평균 매출
-    const monthsWithData1 = data1.filter(v => v > 0).length;
-    if (monthsWithData1 > 0) {
-        const avgMonthly1 = total1 / monthsWithData1;
-        insights.push({
-            icon: '💰',
-            iconClass: 'info',
-            title: '월평균 매출',
-            description: `${year1}년 월평균 매출은 <span class="highlight-value">${formatCurrency(avgMonthly1)}</span>입니다. (데이터가 있는 ${monthsWithData1}개월 기준)`
-        });
-    }
-    
-    // 5. 연속 성장/하락 구간
-    let consecutiveGrowth = findConsecutiveTrend(data1);
-    if (consecutiveGrowth.length > 0 && consecutiveGrowth.months > 2) {
-        insights.push({
-            icon: consecutiveGrowth.type === 'growth' ? '🚀' : '⚠️',
-            iconClass: consecutiveGrowth.type === 'growth' ? 'up' : 'down',
-            title: `연속 ${consecutiveGrowth.type === 'growth' ? '성장' : '하락'} 구간`,
-            description: `${consecutiveGrowth.startMonth}월부터 ${consecutiveGrowth.endMonth}월까지 <span class="${consecutiveGrowth.type === 'growth' ? 'highlight-positive' : 'highlight-negative'}">${consecutiveGrowth.months}개월 연속 ${consecutiveGrowth.type === 'growth' ? '성장' : '하락'}</span>했습니다.`
-        });
-    }
-    
-    // 인사이트 HTML 생성
-    if (insights.length > 0) {
-        insightsContentEl.innerHTML = insights.map(insight => `
-            <div class="insight-item">
-                <div class="insight-item-icon ${insight.iconClass}">${insight.icon}</div>
-                <div class="insight-item-content">
-                    <h4>${insight.title}</h4>
-                    <p>${insight.description}</p>
-                </div>
-            </div>
-        `).join('');
-    }
-}
-
-// 연속 추세 찾기
-function findConsecutiveTrend(data) {
-    let maxStreak = { type: '', months: 0, startMonth: 0, endMonth: 0 };
-    let currentStreak = { type: '', months: 1, startMonth: 1 };
-    
-    for (let i = 1; i < data.length; i++) {
-        if (data[i] > 0 && data[i - 1] > 0) {
-            const trend = data[i] > data[i - 1] ? 'growth' : 'decline';
-            
-            if (trend === currentStreak.type) {
-                currentStreak.months++;
-            } else {
-                if (currentStreak.months > maxStreak.months) {
-                    maxStreak = { ...currentStreak, endMonth: i };
-                }
-                currentStreak = { type: trend, months: 1, startMonth: i };
-            }
-        }
-    }
-    
-    if (currentStreak.months > maxStreak.months) {
-        maxStreak = { ...currentStreak, endMonth: data.length };
-    }
-    
-    return maxStreak;
 }
 
 // 통화 포맷
