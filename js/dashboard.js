@@ -1105,20 +1105,53 @@ async function downloadPDF() {
             document.body.removeChild(statsDiv);
         }
         
-        // 6. 월별 매출 현황 테이블 (tableContainer의 내용)
+        // 6. 월별 매출 현황 테이블 (tableContainer의 내용) - 이미지로 변환
+        if (yPosition > pageHeight - 50) {
+            pdf.addPage();
+            yPosition = margin;
+        }
+        
         const tableElement = tableContainer.querySelector('.data-table');
+        const selectedYear = yearFilter.value;
+        const selectedCategory = categoryFilter.value;
+        
         if (tableElement) {
-            if (yPosition > pageHeight - 50) {
-                pdf.addPage();
-                yPosition = margin;
-            }
+            // 테이블 제목 추가
+            const salesTableTitleHTML = `
+                <div style="font-family: 'Noto Sans KR', sans-serif; padding: 10px 0; background: white;">
+                    <h2 style="font-size: 16px; font-weight: bold; margin: 0; color: #1e293b;">📊 ${selectedYear}년 월별 매출 현황</h2>
+                </div>
+            `;
             
-            pdf.setFontSize(12);
-            pdf.setFont('helvetica', 'bold');
-            const selectedYear = yearFilter.value;
-            const selectedCategory = categoryFilter.value;
-            pdf.text(`📊 ${selectedYear}년 월별 매출 현황`, margin, yPosition);
-            yPosition += 8;
+            const salesTableTitleDiv = document.createElement('div');
+            salesTableTitleDiv.innerHTML = salesTableTitleHTML;
+            salesTableTitleDiv.style.position = 'absolute';
+            salesTableTitleDiv.style.left = '-9999px';
+            salesTableTitleDiv.style.width = '180mm';
+            document.body.appendChild(salesTableTitleDiv);
+            
+            try {
+                const salesTableTitleImage = await html2canvas(salesTableTitleDiv, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    logging: false
+                });
+                
+                const salesTableTitleImgData = salesTableTitleImage.toDataURL('image/png');
+                const salesTableTitleImgWidth = pageWidth - (margin * 2);
+                const salesTableTitleImgHeight = (salesTableTitleImage.height * salesTableTitleImgWidth) / salesTableTitleImage.width;
+                
+                if (yPosition + salesTableTitleImgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    yPosition = margin;
+                }
+                
+                pdf.addImage(salesTableTitleImgData, 'PNG', margin, yPosition, salesTableTitleImgWidth, salesTableTitleImgHeight);
+                yPosition += salesTableTitleImgHeight + 5;
+                document.body.removeChild(salesTableTitleDiv);
+            } catch (error) {
+                document.body.removeChild(salesTableTitleDiv);
+            }
             
             try {
                 // 테이블을 이미지로 변환
@@ -1142,45 +1175,69 @@ async function downloadPDF() {
                 yPosition += imgHeight + 10;
             } catch (error) {
                 console.error('Error capturing table:', error);
-                // 이미지 변환 실패 시 텍스트로 표시
-                pdf.setFontSize(10);
-                pdf.setFont('helvetica', 'normal');
-                pdf.text('월별 매출 현황 테이블을 포함할 수 없습니다.', margin, yPosition);
-                yPosition += 10;
             }
         } else {
-            // 테이블이 없으면 텍스트로 데이터 표시
-            if (yPosition > pageHeight - 50) {
-                pdf.addPage();
-                yPosition = margin;
+            // 테이블이 없으면 이미지로 데이터 표시
+            const selectedYearData = getYearlyData(selectedYear);
+            let salesTableRows = '';
+            
+            for (let i = 0; i < 12; i++) {
+                if (selectedYearData[i] > 0) {
+                    salesTableRows += `
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px; text-align: left;">${i + 1}월</td>
+                            <td style="padding: 8px; text-align: right;">${formatCurrency(selectedYearData[i])}</td>
+                        </tr>
+                    `;
+                }
             }
             
-            pdf.setFontSize(12);
-            pdf.setFont('helvetica', 'bold');
-            const selectedYear = yearFilter.value;
-            pdf.text(`📊 ${selectedYear}년 월별 매출 현황`, margin, yPosition);
-            yPosition += 8;
+            const salesTableHTML = `
+                <div style="font-family: 'Noto Sans KR', sans-serif; padding: 20px; background: white;">
+                    <h2 style="font-size: 16px; font-weight: bold; margin: 0 0 15px 0; color: #1e293b;">📊 ${selectedYear}년 월별 매출 현황</h2>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 10px; text-align: left; font-weight: 600; color: #475569;">월</th>
+                                <th style="padding: 10px; text-align: right; font-weight: 600; color: #475569;">매출액</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${salesTableRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
             
-            // 현재 선택된 연도의 데이터 가져오기
-            const selectedYearData = getYearlyData(selectedYear);
-            pdf.setFontSize(9);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('월', margin, yPosition);
-            pdf.text('매출액', margin + 50, yPosition);
-            yPosition += 6;
+            const salesTableDiv = document.createElement('div');
+            salesTableDiv.innerHTML = salesTableHTML;
+            salesTableDiv.style.position = 'absolute';
+            salesTableDiv.style.left = '-9999px';
+            salesTableDiv.style.width = '180mm';
+            document.body.appendChild(salesTableDiv);
             
-            pdf.setFont('helvetica', 'normal');
-            for (let i = 0; i < 12; i++) {
-                if (yPosition > pageHeight - 15) {
+            try {
+                const salesTableImage = await html2canvas(salesTableDiv, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    logging: false
+                });
+                
+                const salesTableImgData = salesTableImage.toDataURL('image/png');
+                const salesTableImgWidth = pageWidth - (margin * 2);
+                const salesTableImgHeight = (salesTableImage.height * salesTableImgWidth) / salesTableImage.width;
+                
+                if (yPosition + salesTableImgHeight > pageHeight - margin) {
                     pdf.addPage();
                     yPosition = margin;
                 }
                 
-                if (selectedYearData[i] > 0) {
-                    pdf.text(`${i + 1}월`, margin, yPosition);
-                    pdf.text(formatCurrency(selectedYearData[i]), margin + 50, yPosition);
-                    yPosition += 6;
-                }
+                pdf.addImage(salesTableImgData, 'PNG', margin, yPosition, salesTableImgWidth, salesTableImgHeight);
+                yPosition += salesTableImgHeight + 10;
+                document.body.removeChild(salesTableDiv);
+            } catch (error) {
+                console.error('Error capturing sales table:', error);
+                document.body.removeChild(salesTableDiv);
             }
         }
         
