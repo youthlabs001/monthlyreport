@@ -3,148 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monthly Report - 대시보드</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <title>매출 대시보드</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard-chart.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <!-- jsPDF for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- html2canvas for converting HTML to image -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
-<body>
-    <div class="dashboard-container">
-        <!-- Header -->
-        <header class="dashboard-header">
-            <div class="logo">
-                <h1>📊 Monthly Report</h1>
+<body class="dashboard-body">
+    <!-- 좌측 패널: 사용자 정보 -->
+    <aside class="left-panel">
+        <!-- 사용자 프로필 카드 -->
+        <div class="user-profile-card">
+            <div class="user-info-section">
+                <div class="user-name-large" id="userNameLarge">회사명</div>
+                <div class="user-email-large" id="userEmailLarge">user@company.com</div>
+                <div class="user-since">가입일: 2025.12.01</div>
             </div>
-            <div class="user-info">
-                <span id="userEmail">로딩 중...</span>
-                <button class="logout-btn" id="logoutBtn">로그아웃</button>
+            
+            <!-- 회사 선택 드롭다운 (여러 회사 관리 시) -->
+            <div id="companySelector" class="company-selector" style="display: none;">
+                <label class="selector-label">회사 선택</label>
+                <select id="companySelect" class="company-select">
+                    <!-- 동적으로 생성됨 -->
+                </select>
+            </div>
+        </div>
+        
+        <button class="btn-logout-left" id="logoutBtn">로그아웃</button>
+    </aside>
+    
+    <!-- 중앙 패널: 매출 정보 -->
+    <main class="center-panel">
+        <header class="dashboard-header">
+            <div>
+                <h1>매출 대시보드</h1>
+                <p class="date-info" id="dateInfo">2026년 2월 9일 기준</p>
+            </div>
+            <div class="header-actions">
+                <select id="periodSelect" class="period-select">
+                    <option value="week">최근 7일</option>
+                    <option value="month" selected>최근 1개월</option>
+                    <option value="quarter">최근 3개월</option>
+                    <option value="year">최근 1년</option>
+                </select>
+                <button class="btn-export">내보내기</button>
             </div>
         </header>
         
-        <!-- Main Content -->
-        <main class="dashboard-content">
-            <!-- Welcome Section -->
-            <section class="welcome-section">
-                <h2><span id="companyName">고객</span> <span id="selectedYears">2024-2025</span> 매출 동향 비교</h2>
-                <p>매출 현황과 주요 인사이트를 확인하세요.</p>
-            </section>
-            
-            <!-- Insights Section -->
-            <section class="insights-section">
-                <div class="insight-card growth">
-                    <div class="insight-badge">📈 연간 매출 성장</div>
-                    <h3 id="growthTitle">연간 총 매출 분석</h3>
-                    <p id="growthDescription">데이터를 불러오는 중...</p>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">이번 달 매출</span>
                 </div>
-                <div class="insight-card highlight">
-                    <div class="insight-badge">🏆 월별 매출 최고점</div>
-                    <h3 id="peakTitle">최고 매출 월</h3>
-                    <p id="peakDescription">데이터를 불러오는 중...</p>
-                    <div class="insight-icon" id="peakMonth">-월</div>
+                <div class="stat-value" id="currentRevenue">₩0</div>
+                <div class="stat-change positive">
+                    <span class="arrow">↑</span>
+                    <span id="revenueChange">0%</span>
+                    <span class="stat-label">전월 대비</span>
                 </div>
-            </section>
+            </div>
             
-            <!-- Chart Section -->
-            <section class="chart-section">
-                <div class="section-header">
-                    <h3 id="chartTitle">월별 매출 비교 (단위: 원)</h3>
-                    <div class="filter-group">
-                        <select id="compareYear1">
-                            <option value="2024">2024년</option>
-                            <option value="2025" selected>2025년</option>
-                            <option value="2026">2026년</option>
-                        </select>
-                        <span class="vs-text">vs</span>
-                        <select id="compareYear2">
-                            <option value="2024" selected>2024년</option>
-                            <option value="2025">2025년</option>
-                            <option value="2026">2026년</option>
-                        </select>
-                        <button class="compare-btn" id="compareBtn">비교하기</button>
-                        <button class="pdf-download-btn" id="pdfDownloadBtn" title="PDF 다운로드">
-                            📄 PDF 다운로드
-                        </button>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">전월 매출</span>
+                </div>
+                <div class="stat-value" id="lastRevenue">₩0</div>
+                <div class="stat-change">
+                    <span id="lastRevenueChange">전월 데이터</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">평균 거래액</span>
+                </div>
+                <div class="stat-value" id="avgTransaction">₩0</div>
+                <div class="stat-change">
+                    <span id="avgTransactionInfo">이번 달 평균</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-card large">
+                <div class="chart-header">
+                    <h3>월별 매출 추이</h3>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                            <span class="legend-dot" style="background: #4F46E5"></span>
+                            2026년
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-dot" style="background: #10B981"></span>
+                            2025년
+                        </span>
                     </div>
                 </div>
+                <div class="chart-hint">차트의 점을 클릭하면 해당 월의 상세 매출 내역을 볼 수 있습니다</div>
                 <div class="chart-container">
-                    <canvas id="salesChart"></canvas>
+                    <canvas id="revenueChart"></canvas>
                 </div>
-            </section>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>주간 매출 추이</h3>
+                </div>
+                <div class="chart-container-small">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
             
-            <!-- Stats Cards -->
-            <section class="stats-grid">
-                <div class="stat-card">
-                    <h3>이번 달 매출</h3>
-                    <div class="value" id="currentMonthSales">₩0</div>
-                    <div class="change" id="salesChange">전월 대비 -</div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>분기별 성장률</h3>
                 </div>
-                <div class="stat-card">
-                    <h3>지난 달 매출</h3>
-                    <div class="value" id="lastMonthSales">₩0</div>
-                    <div class="change">지난 달 실적</div>
+                <div class="chart-container-small">
+                    <canvas id="growthChart"></canvas>
                 </div>
-                <div class="stat-card">
-                    <h3>올해 누적 매출</h3>
-                    <div class="value" id="yearTotalSales">₩0</div>
-                    <div class="change" id="yearInfo">2026년 누적</div>
+            </div>
+        </div>
+        
+        <div class="table-card">
+            <div class="table-header">
+                <h3>최근 거래 내역</h3>
+                <button class="btn-view-all">전체보기 →</button>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>거래처</th>
+                            <th>카테고리</th>
+                            <th>금액</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTable">
+                        <!-- 동적으로 생성됨 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 우측 패널: 공지사항 및 안내 -->
+    <aside class="right-panel">
+        <!-- 공지사항 -->
+        <div class="notice-card">
+            <div class="notice-header">
+                <h3>📢 공지사항</h3>
+                <button class="btn-more">더보기</button>
+            </div>
+            <div class="notice-list">
+                <div class="notice-item new">
+                    <div class="notice-badge">NEW</div>
+                    <div class="notice-title">2월 정기 점검 안내</div>
+                    <div class="notice-date">2026.02.09</div>
                 </div>
-                <div class="stat-card">
-                    <h3>평균 월 매출</h3>
-                    <div class="value" id="avgMonthlySales">₩0</div>
-                    <div class="change">올해 평균</div>
+                <div class="notice-item">
+                    <div class="notice-title">매출 분석 기능 업데이트</div>
+                    <div class="notice-date">2026.02.05</div>
                 </div>
-            </section>
+                <div class="notice-item">
+                    <div class="notice-title">1월 우수 고객사 선정</div>
+                    <div class="notice-date">2026.02.01</div>
+                </div>
+                <div class="notice-item">
+                    <div class="notice-title">신규 기능 추가 안내</div>
+                    <div class="notice-date">2026.01.28</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 시스템 안내 -->
+        <div class="info-card">
+            <h3>시스템 안내</h3>
+            <div class="info-list">
+                <div class="info-item">
+                    <div>
+                        <div class="info-title">알림 설정</div>
+                        <p>매출 목표 달성 시 알림을 받아보세요</p>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div>
+                        <div class="info-title">데이터 백업</div>
+                        <p>마지막 백업: 오늘 오전 2:00</p>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div>
+                        <div class="info-title">보안 상태</div>
+                        <p>정상 - 2단계 인증 활성화됨</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 빠른 도움말 -->
+        <div class="help-card">
+            <h3>빠른 도움말</h3>
+            <div class="help-list">
+                <a href="#" class="help-item">
+                    <span>사용자 가이드</span>
+                </a>
+                <a href="#" class="help-item">
+                    <span>자주 묻는 질문</span>
+                </a>
+                <a href="#" class="help-item">
+                    <span>고객 지원</span>
+                </a>
+                <a href="#" class="help-item">
+                    <span>1588-0000</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- 최근 활동 -->
+        <div class="activity-card">
+            <h3>최근 활동</h3>
+            <div class="activity-list">
+                <div class="activity-item">
+                    <div class="activity-time">방금 전</div>
+                    <div class="activity-desc">대시보드 조회</div>
+                </div>
+                <div class="activity-item">
+                    <div class="activity-time">10분 전</div>
+                    <div class="activity-desc">거래 내역 추가</div>
+                </div>
+                <div class="activity-item">
+                    <div class="activity-time">1시간 전</div>
+                    <div class="activity-desc">리포트 다운로드</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- 매출 상세 모달 -->
+    <div id="revenueModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title-section">
+                    <h2 id="modalTitle">매출 상세 내역</h2>
+                    <p class="modal-subtitle" id="modalPeriod">-</p>
+                </div>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
             
-            <!-- Monthly Report Table -->
-            <section class="report-section">
-                <div class="section-header">
-                    <h3>월별 매출 현황</h3>
-                    <div class="filter-group">
-                        <select id="categoryFilter">
-                            <option value="summary">월별 합계</option>
-                            <option value="all">전체 (종류별 상세)</option>
-                        </select>
-                        <select id="yearFilter">
-                            <option value="2026">2026년</option>
-                            <option value="2025">2025년</option>
-                            <option value="2024">2024년</option>
-                        </select>
+            <div class="modal-body">
+                <!-- 핵심 지표 -->
+                <div class="modal-hero-section">
+                    <div class="hero-stat">
+                        <span class="hero-label">총 매출</span>
+                        <span class="hero-value" id="modalTotalRevenue">₩0</span>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-label">전월 대비</span>
+                        <span class="hero-value secondary" id="modalChange">-</span>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-label">거래 건수</span>
+                        <span class="hero-value tertiary" id="modalTransactionCount">0건</span>
                     </div>
                 </div>
                 
-                <div id="tableContainer">
-                    <div class="loading">
-                        <div class="spinner"></div>
+                <!-- 2단 레이아웃 -->
+                <div class="modal-grid">
+                    <!-- 왼쪽: 카테고리별 매출 -->
+                    <div class="modal-section">
+                        <h3>카테고리별 매출</h3>
+                        <div id="modalCategoryBreakdown" class="category-breakdown">
+                            <!-- 동적으로 생성 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 오른쪽: 주요 거래처 -->
+                    <div class="modal-section">
+                        <h3>주요 거래처 TOP 5</h3>
+                        <div id="modalTopClients" class="top-clients-list">
+                            <!-- 동적으로 생성 -->
+                        </div>
                     </div>
                 </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- 상세 매출 모달 -->
-    <div class="modal-overlay" id="detailModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">2025년 12월 매출 상세</h3>
-                <button class="modal-close" id="modalClose">&times;</button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <div class="loading">
-                    <div class="spinner"></div>
+                
+                <!-- 전체 너비: 차트 비교 섹션 -->
+                <div class="modal-charts-grid">
+                    <div class="modal-section">
+                        <h3>전월 비교</h3>
+                        <div class="comparison-chart-container">
+                            <canvas id="modalMonthComparisonChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <h3>전년 동월 비교</h3>
+                        <div class="comparison-chart-container">
+                            <canvas id="modalComparisonChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    
     <script src="js/config.js"></script>
     <script src="js/dashboard.js"></script>
 </body>

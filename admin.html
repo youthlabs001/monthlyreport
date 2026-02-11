@@ -3,255 +3,561 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>매출보고서 - 관리자</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <title>관리자 페이지</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard-chart.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
-    <div class="dashboard-container">
-        <!-- Header -->
-        <header class="dashboard-header">
-            <div class="logo">
-                <h1>매출보고서</h1>
-                <span class="admin-badge">관리자</span>
+<body class="admin-body">
+    <!-- 좌측 패널: 메뉴 -->
+    <aside class="admin-left-panel">
+        <div class="admin-logo">
+            <h2>관리자</h2>
+        </div>
+        
+        <nav class="admin-menu">
+            <div class="menu-section">
+                <h3>사용자 관리</h3>
+                <button class="menu-item active" data-menu="users">
+                    <span>사용자 목록</span>
+                </button>
+                <button class="menu-item" data-menu="companies">
+                    <span>회사 관리</span>
+                </button>
             </div>
-            <div class="user-info">
-                <span id="adminEmail">관리자</span>
-                <button class="logout-btn" id="logoutBtn">로그아웃</button>
+            
+            <div class="menu-section">
+                <h3>데이터 관리</h3>
+                <button class="menu-item" data-menu="manual-entry">
+                    <span>수기 등록</span>
+                </button>
+                <button class="menu-item" data-menu="upload">
+                    <span>데이터 업로드</span>
+                </button>
+                <button class="menu-item" data-menu="backup">
+                    <span>백업/복원</span>
+                </button>
+                <button class="menu-item" data-menu="stats">
+                    <span>통계 현황</span>
+                </button>
             </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="dashboard-content">
-            <div class="welcome-section">
-                <h2>매출 데이터 관리</h2>
-                <p>고객별 월간 매출 현황을 등록하고 관리합니다.</p>
+            
+            <div class="menu-section">
+                <h3>시스템</h3>
+                <button class="menu-item" data-menu="settings">
+                    <span>시스템 설정</span>
+                </button>
+                <button class="menu-item" data-menu="logs">
+                    <span>활동 로그</span>
+                </button>
             </div>
-
-            <!-- 탭 메뉴 -->
-            <div class="admin-section">
-                <div class="tab-menu">
-                    <button class="tab-btn active" data-tab="bulk">📋 일괄 등록 (복사/붙여넣기)</button>
-                    <button class="tab-btn" data-tab="file">📁 파일 업로드 (엑셀)</button>
-                    <button class="tab-btn" data-tab="single">📝 개별 등록</button>
+        </nav>
+        
+        <div class="admin-user-info">
+            <div class="admin-user-details">
+                <div class="admin-user-name" id="userName">관리자</div>
+                <div class="admin-user-email" id="userEmail">admin@company.com</div>
+            </div>
+            <button class="btn-logout-admin" id="logoutBtn">로그아웃</button>
+        </div>
+        
+        <button class="btn-back-to-dashboard" onclick="location.href='dashboard.html'">
+            ← 대시보드로 돌아가기
+        </button>
+    </aside>
+    
+    <!-- 중앙 패널: 메인 콘텐츠 -->
+    <main class="admin-center-panel">
+        <div class="content-header">
+            <h1 id="contentTitle">사용자 목록</h1>
+            <p id="contentSubtitle">등록된 사용자를 관리합니다</p>
+        </div>
+        
+        <!-- 사용자 관리 -->
+        <div id="users-menu" class="menu-content active">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>등록된 사용자</h3>
+                    <button class="btn-add">+ 사용자 추가</button>
                 </div>
-
-                <!-- 일괄 등록 탭 -->
-                <div class="tab-content active" id="bulkTab">
-                    <div class="bulk-upload-section">
-                        <div class="bulk-header">
-                            <h4>구글 시트에서 복사/붙여넣기</h4>
-                            <p>아래 형식에 맞게 구글 시트에서 데이터를 복사하여 붙여넣기 하세요.</p>
-                        </div>
-                        
-                        <div class="format-guide">
-                            <div class="guide-header">
-                                <span class="guide-icon">💡</span>
-                                <strong>데이터 형식 안내</strong>
-                            </div>
-                            <div class="guide-content">
-                                <p><strong>지원 형식 (자동 인식):</strong></p>
-                                <div class="guide-example">
-                                    <p><strong>형식 1: YYYYMMDD, 매출액, 매출종류</strong></p>
-                                    <code>20251231	136,548,330	네이버예약매출</code><br>
-                                    <code>20251231	45,000,000	배달매출</code><br><br>
-                                    <p><strong>형식 2: 연도, 월, 매출종류, 매출액</strong></p>
-                                    <code>2025	12	네이버예약매출	136548330</code><br>
-                                    <code>2025	12	배달매출	45000000</code>
-                                </div>
-                                <p style="margin-top: 12px; color: #64748b; font-size: 13px;">* 매출액에 쉼표(,)가 포함되어도 자동 인식됩니다.</p>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="bulkCustomerSelect">고객 선택</label>
-                            <select id="bulkCustomerSelect" required>
-                                <option value="">고객을 선택하세요</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="pasteArea">데이터 붙여넣기</label>
-                            <textarea id="pasteArea" class="paste-area" placeholder="구글 시트에서 데이터를 복사한 후 여기에 붙여넣기 하세요 (Ctrl+V / Cmd+V)
-
-예시:
-20251231	136,548,330	네이버예약매출
-20251231	45,000,000	배달매출
-20251130	128,000,000	네이버예약매출
-..." rows="10"></textarea>
-                        </div>
-
-                        <div class="preview-section" id="previewSection" style="display: none;">
-                            <div class="preview-header">
-                                <h4>📊 미리보기 (<span id="previewCount">0</span>건)</h4>
-                                <button type="button" class="clear-btn" id="clearPreview">초기화</button>
-                            </div>
-                            <div class="preview-table-container" id="previewTable"></div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="button" class="submit-btn" id="bulkUploadBtn" disabled>일괄 등록</button>
-                            <button type="button" class="reset-btn" id="clearBulkBtn">초기화</button>
-                        </div>
-                        <div class="message" id="bulkMessage"></div>
-                        
-                        <div class="upload-progress" id="uploadProgress" style="display: none;">
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="progressFill"></div>
-                            </div>
-                            <p class="progress-text" id="progressText">업로드 중... 0%</p>
-                        </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>이름</th>
+                                <th>이메일</th>
+                                <th>회사명</th>
+                                <th>상태</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable">
+                            <!-- 동적으로 생성됨 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 회사 관리 -->
+        <div id="companies-menu" class="menu-content">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>등록된 회사</h3>
+                    <button class="btn-add">+ 회사 추가</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>회사명</th>
+                                <th>사업자등록번호</th>
+                                <th>사용자 수</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companiesTable">
+                            <!-- 동적으로 생성됨 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 통계 현황 -->
+        <div id="stats-menu" class="menu-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">총 회사 수</span>
                     </div>
+                    <div class="stat-value">2</div>
                 </div>
-
-                <!-- 파일 업로드 탭 -->
-                <div class="tab-content" id="fileTab">
-                    <div class="file-upload-section">
-                        <div class="bulk-header">
-                            <h4>엑셀 파일 업로드</h4>
-                            <p>엑셀(.xlsx, .xls) 파일을 업로드하여 월별 매출 데이터를 자동으로 분석합니다.</p>
-                        </div>
-                        
-                        <div class="format-guide">
-                            <div class="guide-header">
-                                <span class="guide-icon">💡</span>
-                                <strong>파일 형식 안내</strong>
-                            </div>
-                            <div class="guide-content">
-                                <p><strong>지원 파일 형식:</strong></p>
-                                <ul style="margin: 8px 0; padding-left: 20px;">
-                                    <li>엑셀 파일 (.xlsx, .xls)</li>
-                                </ul>
-                                <p style="margin-top: 12px;"><strong>데이터 형식:</strong></p>
-                                <p style="color: #64748b; font-size: 13px;">엑셀 양식을 다운로드하여 작성하거나, 다음 형식으로 작성하세요:</p>
-                                <ul style="margin: 8px 0; padding-left: 20px; color: #64748b; font-size: 13px;">
-                                    <li>연도, 월, 매출종류, 매출액, 판매건수(선택), 비고(선택)</li>
-                                </ul>
-                                <p style="margin-top: 12px; color: #64748b; font-size: 13px;">* 엑셀 양식을 다운로드하여 사용하면 더 쉽게 작성할 수 있습니다.</p>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="fileCustomerSelect">고객 선택</label>
-                            <select id="fileCustomerSelect" required>
-                                <option value="">고객을 선택하세요</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="fileUpload">파일 선택</label>
-                            <div class="file-upload-wrapper">
-                                <input type="file" id="fileUpload" accept=".xlsx,.xls" style="display: none;">
-                                <button type="button" class="file-select-btn" id="fileSelectBtn">
-                                    📁 파일 선택
-                                </button>
-                                <button type="button" class="template-download-btn" id="templateDownloadBtn">
-                                    📥 엑셀 양식 다운로드
-                                </button>
-                                <span id="fileName" class="file-name">선택된 파일이 없습니다</span>
-                            </div>
-                            <p style="margin-top: 8px; font-size: 12px; color: #64748b;">
-                                💡 엑셀 양식을 다운로드하여 작성한 후 업로드하세요.
-                            </p>
-                        </div>
-
-                        <div class="preview-section" id="filePreviewSection" style="display: none;">
-                            <div class="preview-header">
-                                <h4>📊 분석 결과 미리보기 (<span id="filePreviewCount">0</span>건)</h4>
-                                <button type="button" class="clear-btn" id="clearFilePreview">초기화</button>
-                            </div>
-                            <div class="preview-table-container" id="filePreviewTable"></div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="button" class="submit-btn" id="fileUploadBtn" disabled>데이터 등록</button>
-                            <button type="button" class="reset-btn" id="clearFileBtn">초기화</button>
-                        </div>
-                        <div class="message" id="fileMessage"></div>
-                        
-                        <div class="upload-progress" id="fileUploadProgress" style="display: none;">
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="fileProgressFill"></div>
-                            </div>
-                            <p class="progress-text" id="fileProgressText">업로드 중... 0%</p>
-                        </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">총 사용자 수</span>
                     </div>
+                    <div class="stat-value">2</div>
                 </div>
-
-                <!-- 개별 등록 탭 -->
-                <div class="tab-content" id="singleTab">
-                    <form id="salesForm" class="sales-form">
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">총 거래 건수</span>
+                    </div>
+                    <div class="stat-value">16</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">전체 매출 합계</span>
+                    </div>
+                    <div class="stat-value">₩1.06B</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 수기 등록 -->
+        <div id="manual-entry-menu" class="menu-content">
+            <div class="manual-entry-section">
+                <div class="entry-header">
+                    <h3>매출 데이터 수기 등록</h3>
+                    <p>소량의 매출 데이터를 직접 입력하여 등록할 수 있습니다</p>
+                </div>
+                
+                <div class="entry-form-container">
+                    <form id="manualEntryForm" class="entry-form">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="customerSelect">고객 선택</label>
-                                <select id="customerSelect" required>
-                                    <option value="">고객을 선택하세요</option>
+                                <label for="entryDate">날짜 <span class="required">*</span></label>
+                                <input type="date" id="entryDate" name="date" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="entryClient">거래처 <span class="required">*</span></label>
+                                <input type="text" id="entryClient" name="client" placeholder="거래처명을 입력하세요" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="entryCategory">카테고리 <span class="required">*</span></label>
+                                <select id="entryCategory" name="category" required>
+                                    <option value="">선택하세요</option>
+                                    <option value="제품 A">제품 A</option>
+                                    <option value="제품 B">제품 B</option>
+                                    <option value="제품 C">제품 C</option>
+                                    <option value="제품 D">제품 D</option>
+                                    <option value="서비스">서비스</option>
+                                    <option value="기타">기타</option>
                                 </select>
                             </div>
+                            
                             <div class="form-group">
-                                <label for="yearSelect">연도</label>
-                                <select id="yearSelect" required>
-                                    <option value="2024">2024년</option>
-                                    <option value="2025">2025년</option>
-                                    <option value="2026" selected>2026년</option>
+                                <label for="entryAmount">금액 <span class="required">*</span></label>
+                                <input type="number" id="entryAmount" name="amount" placeholder="금액을 입력하세요" min="0" step="1000" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="entryStatus">상태 <span class="required">*</span></label>
+                                <select id="entryStatus" name="status" required>
+                                    <option value="">선택하세요</option>
+                                    <option value="완료">완료</option>
+                                    <option value="진행중">진행중</option>
+                                    <option value="대기">대기</option>
                                 </select>
                             </div>
+                            
                             <div class="form-group">
-                                <label for="monthSelect">월</label>
-                                <select id="monthSelect" required>
-                                    <option value="1">1월</option>
-                                    <option value="2">2월</option>
-                                    <option value="3">3월</option>
-                                    <option value="4">4월</option>
-                                    <option value="5">5월</option>
-                                    <option value="6">6월</option>
-                                    <option value="7">7월</option>
-                                    <option value="8">8월</option>
-                                    <option value="9">9월</option>
-                                    <option value="10">10월</option>
-                                    <option value="11">11월</option>
-                                    <option value="12">12월</option>
+                                <label for="entryUser">대상 사용자 <span class="required">*</span></label>
+                                <select id="entryUser" name="user" required>
+                                    <option value="">선택하세요</option>
+                                    <!-- 동적으로 생성됨 -->
                                 </select>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="category">매출 종류</label>
-                                <input type="text" id="category" list="categoryList" placeholder="매출 종류 입력 (예: 도서판매)" required>
-                                <datalist id="categoryList"></datalist>
-                            </div>
-                            <div class="form-group">
-                                <label for="amount">매출액 (원)</label>
-                                <input type="number" id="amount" placeholder="매출액을 입력하세요" required>
-                            </div>
+                        
+                        <div class="form-group full-width">
+                            <label for="entryNote">메모 (선택사항)</label>
+                            <textarea id="entryNote" name="note" rows="3" placeholder="추가 정보를 입력하세요"></textarea>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="salesCount">판매 건수 <span class="optional">(선택)</span></label>
-                                <input type="number" id="salesCount" placeholder="판매 건수">
-                            </div>
-                            <div class="form-group">
-                                <label for="note">비고 <span class="optional">(선택)</span></label>
-                                <input type="text" id="note" placeholder="메모">
-                            </div>
-                        </div>
+                        
                         <div class="form-actions">
-                            <button type="submit" class="submit-btn">매출 등록</button>
-                            <button type="reset" class="reset-btn">초기화</button>
+                            <button type="reset" class="btn-secondary">초기화</button>
+                            <button type="submit" class="btn-primary">등록하기</button>
                         </div>
-                        <div class="message" id="message"></div>
                     </form>
+                    
+                    <!-- 등록 성공 메시지 -->
+                    <div id="entrySuccess" class="entry-success" style="display: none;">
+                        <div class="success-icon">✓</div>
+                        <h4>등록 완료!</h4>
+                        <p>매출 데이터가 성공적으로 등록되었습니다.</p>
+                        <button class="btn-primary" onclick="document.getElementById('entrySuccess').style.display='none'">확인</button>
+                    </div>
                 </div>
             </div>
-        </main>
+        </div>
+        
+        <!-- 데이터 업로드 -->
+        <div id="upload-menu" class="menu-content">
+            <div class="upload-section">
+                <div class="upload-header">
+                    <h3>매출 데이터 업로드</h3>
+                    <p>엑셀 파일을 통해 사용자의 매출 데이터를 일괄 등록할 수 있습니다</p>
+                </div>
+                
+                <div class="upload-steps">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <h4>양식 다운로드</h4>
+                        <p>매출 데이터 입력 양식을 다운로드하세요</p>
+                        <button class="btn-download" id="downloadTemplateBtn">
+                            엑셀 양식 다운로드
+                        </button>
+                    </div>
+                    
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <h4>데이터 입력</h4>
+                        <p>양식에 맞춰 매출 데이터를 입력하세요</p>
+                        <div class="format-info">
+                            <strong>필수 항목:</strong> 날짜, 거래처, 카테고리, 금액, 상태
+                        </div>
+                    </div>
+                    
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <h4>파일 업로드</h4>
+                        <p>작성한 엑셀 파일을 업로드하세요</p>
+                        <div class="upload-area" id="uploadArea">
+                            <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;">
+                            <div class="upload-content">
+                                <div class="upload-icon">+</div>
+                                <p><strong>파일을 드래그하거나 클릭하여 선택하세요</strong></p>
+                                <p class="file-info">지원 형식: .xlsx, .xls</p>
+                            </div>
+                        </div>
+                        <button class="btn-upload" id="uploadBtn" disabled>
+                            데이터 업로드
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 업로드 결과 -->
+                <div id="uploadResult" class="upload-result" style="display: none;">
+                    <div class="result-header">
+                        <h4>업로드 결과</h4>
+                        <button class="btn-close-result" id="closeResultBtn">×</button>
+                    </div>
+                    <div class="result-content">
+                        <div class="result-stats">
+                            <div class="result-stat">
+                                <span class="result-label">총 데이터</span>
+                                <span class="result-value" id="totalRows">0</span>
+                            </div>
+                            <div class="result-stat success">
+                                <span class="result-label">성공</span>
+                                <span class="result-value" id="successRows">0</span>
+                            </div>
+                            <div class="result-stat error">
+                                <span class="result-label">실패</span>
+                                <span class="result-value" id="errorRows">0</span>
+                            </div>
+                        </div>
+                        <div id="errorDetails" class="error-details"></div>
+                    </div>
+                </div>
+                
+                <!-- 사용자 선택 -->
+                <div class="user-selection">
+                    <label for="targetUserSelect">대상 사용자 선택:</label>
+                    <select id="targetUserSelect" class="user-select">
+                        <option value="">사용자를 선택하세요</option>
+                        <!-- 동적으로 생성됨 -->
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 백업/복원 -->
+        <div id="backup-menu" class="menu-content">
+            <div class="action-cards">
+                <div class="action-card">
+                    <h3>데이터베이스 백업</h3>
+                    <p>현재 데이터베이스를 백업합니다</p>
+                    <button class="btn-primary">백업 시작</button>
+                </div>
+                
+                <div class="action-card">
+                    <h3>데이터 내보내기</h3>
+                    <p>모든 매출 데이터를 CSV로 내보냅니다</p>
+                    <button class="btn-primary">내보내기</button>
+                </div>
+                
+                <div class="action-card">
+                    <h3>데이터 동기화</h3>
+                    <p>외부 시스템과 데이터를 동기화합니다</p>
+                    <button class="btn-primary">동기화</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 시스템 설정 -->
+        <div id="settings-menu" class="menu-content">
+            <div class="settings-card">
+                <h3>시스템 설정</h3>
+                <p>시스템 환경 설정 및 권한 관리</p>
+                <div class="settings-list">
+                    <div class="setting-item">
+                        <span>자동 백업</span>
+                        <label class="switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span>이메일 알림</span>
+                        <label class="switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span>2단계 인증</span>
+                        <label class="switch">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 활동 로그 -->
+        <div id="logs-menu" class="menu-content">
+            <div class="logs-card">
+                <h3>시스템 활동 로그</h3>
+                <div class="logs-list" id="systemLogs">
+                    <!-- 동적으로 생성 -->
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 우측 패널: 실시간 정보 -->
+    <aside class="admin-right-panel">
+        <!-- 시스템 상태 -->
+        <div class="status-card">
+            <h3>시스템 상태</h3>
+            <div class="status-list">
+                <div class="status-item">
+                    <span class="status-label">서버 상태</span>
+                    <span class="status-badge online">정상</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">데이터베이스</span>
+                    <span class="status-badge online">연결됨</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">마지막 백업</span>
+                    <span class="status-value">2시간 전</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">디스크 사용량</span>
+                    <span class="status-value">45%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 빠른 통계 -->
+        <div class="quick-stats-card">
+            <h3>오늘의 통계</h3>
+            <div class="quick-stat-item">
+                <div>
+                    <div class="stat-label">활성 사용자</div>
+                    <div class="stat-number">2</div>
+                </div>
+            </div>
+            <div class="quick-stat-item">
+                <div>
+                    <div class="stat-label">오늘 업로드</div>
+                    <div class="stat-number">0건</div>
+                </div>
+            </div>
+            <div class="quick-stat-item">
+                <div>
+                    <div class="stat-label">총 데이터</div>
+                    <div class="stat-number">16건</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 최근 활동 -->
+        <div class="activity-card">
+            <h3>최근 활동</h3>
+            <div class="activity-list">
+                <div class="activity-item">
+                    <div class="activity-content">
+                        <div class="activity-text">관리자 로그인</div>
+                        <div class="activity-time">방금 전</div>
+                    </div>
+                </div>
+                <div class="activity-item">
+                    <div class="activity-content">
+                        <div class="activity-text">대시보드 조회</div>
+                        <div class="activity-time">5분 전</div>
+                    </div>
+                </div>
+                <div class="activity-item">
+                    <div class="activity-content">
+                        <div class="activity-text">자동 백업 완료</div>
+                        <div class="activity-time">2시간 전</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 알림 -->
+        <div class="notification-card">
+            <h3>알림</h3>
+            <div class="notification-list">
+                <div class="notification-item new">
+                    <div class="notification-badge">NEW</div>
+                    <div class="notification-content">
+                        <div class="notification-title">시스템 정기 점검 예정</div>
+                        <div class="notification-date">2026.02.15</div>
+                    </div>
+                </div>
+                <div class="notification-item">
+                    <div class="notification-content">
+                        <div class="notification-title">백업 완료</div>
+                        <div class="notification-date">오늘</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 빠른 작업 -->
+        <div class="quick-actions-card">
+            <h3>빠른 작업</h3>
+            <button class="quick-action-btn" onclick="document.querySelector('[data-menu=upload]').click()">
+                <span>데이터 업로드</span>
+            </button>
+            <button class="quick-action-btn" onclick="document.querySelector('[data-menu=backup]').click()">
+                <span>백업 시작</span>
+            </button>
+            <button class="quick-action-btn" onclick="document.querySelector('[data-menu=users]').click()">
+                <span>사용자 관리</span>
+            </button>
+        </div>
+    </aside>
+    
+    <!-- 사용자 수정 모달 -->
+    <div id="editUserModal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeEditUserModal()"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>사용자 정보 수정</h2>
+                <button class="modal-close" onclick="closeEditUserModal()">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    
+                    <div class="form-group">
+                        <label>이름 <span class="required">*</span></label>
+                        <input type="text" id="editUserName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>이메일 <span class="required">*</span></label>
+                        <input type="email" id="editUserEmail" required readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>상태 <span class="required">*</span></label>
+                        <select id="editUserStatus" required>
+                            <option value="활성">활성</option>
+                            <option value="비활성">비활성</option>
+                            <option value="대기">대기</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label>관리 회사 <span class="required">*</span></label>
+                        <div class="companies-list" id="editUserCompanies">
+                            <!-- 동적으로 회사 목록이 표시됨 -->
+                        </div>
+                        <button type="button" class="btn-add-company" onclick="showAddCompanySelect()">
+                            + 회사 추가
+                        </button>
+                        <div id="addCompanySelect" style="display: none; margin-top: 12px;">
+                            <select id="companyToAdd" class="company-select">
+                                <option value="">회사를 선택하세요</option>
+                            </select>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <button type="button" class="btn-secondary btn-small" onclick="cancelAddCompany()">취소</button>
+                                <button type="button" class="btn-primary btn-small" onclick="addCompanyToUser()">추가</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeEditUserModal()">취소</button>
+                <button type="button" class="btn-primary" onclick="saveUserChanges()">저장</button>
+            </div>
+        </div>
     </div>
 
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-    <!-- SheetJS for Excel parsing -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/admin.js"></script>
 </body>

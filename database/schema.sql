@@ -1,85 +1,166 @@
--- =============================================
--- Monthly Report 데이터베이스 스키마
--- Supabase SQL Editor에서 실행해주세요
--- =============================================
+-- 매출 대시보드 데이터베이스 스키마
 
--- 1. 매출 리포트 테이블 생성
-CREATE TABLE IF NOT EXISTS sales_reports (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    year INTEGER NOT NULL,
-    month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
-    amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
-    sales_count INTEGER DEFAULT 0,
-    note TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- 같은 사용자의 같은 년/월 데이터는 중복 불가
-    UNIQUE(user_id, year, month)
+-- 회사 정보 테이블
+CREATE TABLE IF NOT EXISTS companies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_name VARCHAR(255) NOT NULL,
+    business_number VARCHAR(20) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Row Level Security (RLS) 활성화
--- 사용자가 본인의 데이터만 볼 수 있도록 설정
-ALTER TABLE sales_reports ENABLE ROW LEVEL SECURITY;
+-- 사용자 테이블
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    role VARCHAR(20) DEFAULT 'user',
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
 
--- 3. RLS 정책 생성
--- 사용자는 본인의 데이터만 조회 가능
-CREATE POLICY "Users can view own sales reports" 
-    ON sales_reports 
-    FOR SELECT 
-    USING (auth.uid() = user_id);
+-- 월간 목표 테이블
+CREATE TABLE IF NOT EXISTS monthly_goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    target_revenue DECIMAL(15, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    UNIQUE(company_id, year, month)
+);
 
--- 사용자는 본인의 데이터만 삽입 가능
-CREATE POLICY "Users can insert own sales reports" 
-    ON sales_reports 
-    FOR INSERT 
-    WITH CHECK (auth.uid() = user_id);
+-- 매출 데이터 테이블
+CREATE TABLE IF NOT EXISTS revenue_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    record_date DATE NOT NULL,
+    category VARCHAR(100),
+    client_name VARCHAR(255),
+    amount DECIMAL(15, 2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'completed',
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
 
--- 사용자는 본인의 데이터만 수정 가능
-CREATE POLICY "Users can update own sales reports" 
-    ON sales_reports 
-    FOR UPDATE 
-    USING (auth.uid() = user_id);
+-- 카테고리 테이블
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    category_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    color VARCHAR(7),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    UNIQUE(company_id, category_name)
+);
 
--- 관리자는 모든 데이터 조회 가능
-CREATE POLICY "Admin can view all sales reports" 
-    ON sales_reports 
-    FOR SELECT 
-    USING (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+-- 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id);
+CREATE INDEX IF NOT EXISTS idx_revenue_company_date ON revenue_records(company_id, record_date);
+CREATE INDEX IF NOT EXISTS idx_revenue_category ON revenue_records(category);
+CREATE INDEX IF NOT EXISTS idx_monthly_goals_company ON monthly_goals(company_id, year, month);
 
--- 관리자는 모든 데이터 삽입 가능
-CREATE POLICY "Admin can insert all sales reports" 
-    ON sales_reports 
-    FOR INSERT 
-    WITH CHECK (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+-- 샘플 데이터 삽입 (테스트용)
 
--- 관리자는 모든 데이터 수정 가능
-CREATE POLICY "Admin can update all sales reports" 
-    ON sales_reports 
-    FOR UPDATE 
-    USING (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+-- 회사 1
+INSERT INTO companies (id, company_name, business_number) 
+VALUES (1, '테크노바 주식회사', '123-45-67890');
 
--- 관리자는 모든 데이터 삭제 가능
-CREATE POLICY "Admin can delete all sales reports" 
-    ON sales_reports 
-    FOR DELETE 
-    USING (auth.jwt() ->> 'email' IN ('mlbooks001@gmail.com', 'admin@example.com'));
+-- 회사 2
+INSERT INTO companies (id, company_name, business_number) 
+VALUES (2, '미래산업 코퍼레이션', '987-65-43210');
 
--- 4. updated_at 자동 업데이트 트리거
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- 사용자 1 (비밀번호: demo123)
+INSERT INTO users (company_id, email, password_hash, full_name, phone) 
+VALUES (1, 'demo1@company.com', '$2a$10$demo1hashedpassword', '김철수', '010-1234-5678');
 
-CREATE TRIGGER update_sales_reports_updated_at
-    BEFORE UPDATE ON sales_reports
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- 사용자 2 (비밀번호: demo123)
+INSERT INTO users (company_id, email, password_hash, full_name, phone) 
+VALUES (2, 'demo2@company.com', '$2a$10$demo2hashedpassword', '이영희', '010-9876-5432');
 
--- 5. 인덱스 생성 (성능 최적화)
-CREATE INDEX IF NOT EXISTS idx_sales_reports_user_id ON sales_reports(user_id);
-CREATE INDEX IF NOT EXISTS idx_sales_reports_year_month ON sales_reports(year, month);
+-- 월간 목표
+INSERT INTO monthly_goals (company_id, year, month, target_revenue) 
+VALUES (1, 2026, 2, 500000000.00);
+
+INSERT INTO monthly_goals (company_id, year, month, target_revenue) 
+VALUES (2, 2026, 2, 800000000.00);
+
+-- 카테고리 (회사 1)
+INSERT INTO categories (company_id, category_name, color) 
+VALUES 
+    (1, '제품 판매', '#4F46E5'),
+    (1, '서비스', '#10B981'),
+    (1, '구독', '#F59E0B'),
+    (1, '라이선스', '#EF4444');
+
+-- 카테고리 (회사 2)
+INSERT INTO categories (company_id, category_name, color) 
+VALUES 
+    (2, '제조', '#4F46E5'),
+    (2, '유통', '#10B981'),
+    (2, '수출', '#F59E0B'),
+    (2, '기타', '#EF4444');
+
+-- 매출 데이터 샘플 (회사 1)
+INSERT INTO revenue_records (company_id, record_date, category, client_name, amount, status) 
+VALUES 
+    (1, '2026-02-09', '제품 판매', '(주)글로벌테크', 45000000.00, 'completed'),
+    (1, '2026-02-08', '서비스', '스마트솔루션', 12500000.00, 'completed'),
+    (1, '2026-02-08', '구독', '디지털코리아', 3800000.00, 'pending'),
+    (1, '2026-02-07', '라이선스', '넥스트제너레이션', 8900000.00, 'completed'),
+    (1, '2026-02-07', '제품 판매', '이노베이션랩', 28000000.00, 'completed'),
+    (1, '2026-02-06', '서비스', '퓨처비전', 15600000.00, 'completed'),
+    (1, '2026-02-06', '구독', '클라우드웍스', 4200000.00, 'pending'),
+    (1, '2026-02-05', '제품 판매', '스마트시스템즈', 32000000.00, 'completed');
+
+-- 매출 데이터 샘플 (회사 2)
+INSERT INTO revenue_records (company_id, record_date, category, client_name, amount, status) 
+VALUES 
+    (2, '2026-02-09', '수출', '대한무역', 125000000.00, 'completed'),
+    (2, '2026-02-08', '유통', '글로벌유통', 48500000.00, 'completed'),
+    (2, '2026-02-08', '제조', '제조파트너스', 87300000.00, 'pending'),
+    (2, '2026-02-07', '기타', '수입협회', 12800000.00, 'completed'),
+    (2, '2026-02-07', '제조', '산업자재', 95600000.00, 'completed'),
+    (2, '2026-02-06', '수출', '해외바이어스', 145000000.00, 'completed'),
+    (2, '2026-02-06', '유통', '도매센터', 52000000.00, 'pending'),
+    (2, '2026-02-05', '제조', '제조협력사', 78900000.00, 'completed');
+
+-- 뷰 생성: 월별 매출 집계
+CREATE VIEW IF NOT EXISTS monthly_revenue_summary AS
+SELECT 
+    company_id,
+    strftime('%Y', record_date) AS year,
+    strftime('%m', record_date) AS month,
+    SUM(amount) AS total_revenue,
+    COUNT(*) AS transaction_count,
+    AVG(amount) AS avg_transaction
+FROM revenue_records
+WHERE status = 'completed'
+GROUP BY company_id, year, month;
+
+-- 뷰 생성: 카테고리별 매출 집계
+CREATE VIEW IF NOT EXISTS category_revenue_summary AS
+SELECT 
+    r.company_id,
+    r.category,
+    SUM(r.amount) AS total_revenue,
+    COUNT(*) AS transaction_count,
+    ROUND(SUM(r.amount) * 100.0 / (
+        SELECT SUM(amount) 
+        FROM revenue_records 
+        WHERE company_id = r.company_id 
+        AND status = 'completed'
+    ), 2) AS percentage
+FROM revenue_records r
+WHERE r.status = 'completed'
+GROUP BY r.company_id, r.category;

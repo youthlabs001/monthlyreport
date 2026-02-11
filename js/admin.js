@@ -1,1104 +1,1088 @@
-// DOM Elements
-const adminEmailEl = document.getElementById('adminEmail');
-const logoutBtn = document.getElementById('logoutBtn');
-const salesForm = document.getElementById('salesForm');
-const customerSelect = document.getElementById('customerSelect');
-const yearSelect = document.getElementById('yearSelect');
-const monthSelect = document.getElementById('monthSelect');
-const categoryInput = document.getElementById('category');
-const categoryList = document.getElementById('categoryList');
-const amountInput = document.getElementById('amount');
-const salesCountInput = document.getElementById('salesCount');
-const noteInput = document.getElementById('note');
-const messageEl = document.getElementById('message');
+// 관리자 페이지 기능
 
-// Bulk Upload Elements
-const bulkCustomerSelect = document.getElementById('bulkCustomerSelect');
-const pasteArea = document.getElementById('pasteArea');
-const previewSection = document.getElementById('previewSection');
-const previewTable = document.getElementById('previewTable');
-const previewCount = document.getElementById('previewCount');
-const bulkUploadBtn = document.getElementById('bulkUploadBtn');
-const clearBulkBtn = document.getElementById('clearBulkBtn');
-const clearPreviewBtn = document.getElementById('clearPreview');
-const bulkMessageEl = document.getElementById('bulkMessage');
-const uploadProgress = document.getElementById('uploadProgress');
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-
-// File Upload Elements
-const fileCustomerSelect = document.getElementById('fileCustomerSelect');
-const fileUpload = document.getElementById('fileUpload');
-const fileSelectBtn = document.getElementById('fileSelectBtn');
-const templateDownloadBtn = document.getElementById('templateDownloadBtn');
-const fileName = document.getElementById('fileName');
-const filePreviewSection = document.getElementById('filePreviewSection');
-const filePreviewTable = document.getElementById('filePreviewTable');
-const filePreviewCount = document.getElementById('filePreviewCount');
-const fileUploadBtn = document.getElementById('fileUploadBtn');
-const clearFileBtn = document.getElementById('clearFileBtn');
-const clearFilePreview = document.getElementById('clearFilePreview');
-const fileMessage = document.getElementById('fileMessage');
-const fileUploadProgress = document.getElementById('fileUploadProgress');
-const fileProgressFill = document.getElementById('fileProgressFill');
-const fileProgressText = document.getElementById('fileProgressText');
-
-// Tab Elements
-const tabBtns = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
-
-// 관리자 이메일 목록 (여기에 관리자 이메일 추가)
-const ADMIN_EMAILS = ['anteater1@naver.com', 'mlbooks001@gmail.com'];
-
-// 현재 사용자
-let currentUser = null;
-let parsedData = []; // 파싱된 데이터 저장
-let fileParsedData = []; // 파일에서 파싱된 데이터 저장
-
-// 페이지 로드 시 인증 확인
-document.addEventListener('DOMContentLoaded', async () => {
-    await checkAdminAuth();
-    await loadCustomers(); // 고객 선택 드롭다운용으로만 사용
-    await loadCategories();
-    setCurrentMonth();
-});
-
-// 관리자 인증 확인
-async function checkAdminAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    
-    if (!session) {
+document.addEventListener('DOMContentLoaded', () => {
+    // 로그인 확인 (실제로는 관리자 권한 확인 필요)
+    const currentUser = Storage.getUser();
+    if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
     
-    currentUser = session.user;
+    // 사용자 정보 업데이트
+    updateUserInfo();
     
-    // 관리자 권한 확인
-    if (!ADMIN_EMAILS.includes(currentUser.email)) {
-        alert('관리자 권한이 없습니다.');
-        window.location.href = 'dashboard.html';
-        return;
-    }
+    // 탭 전환 이벤트
+    setupTabs();
     
-    adminEmailEl.textContent = currentUser.email;
-}
-
-// 로그아웃
-logoutBtn.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    window.location.href = 'index.html';
+    // 로그아웃 버튼
+    setupLogout();
+    
+    // 버튼 이벤트
+    setupButtons();
+    
+    // 엑셀 업로드 기능
+    setupExcelUpload();
+    
+    // 수기 등록 기능
+    setupManualEntry();
+    
+    // 사용자 테이블 초기화
+    updateUsersTable();
+    
+    // 사용자 선택 드롭다운 초기화
+    updateUserSelects();
+    
+    // 회사 테이블 초기화
+    updateCompaniesTable();
+    
+    // 통계 업데이트
+    updateStats();
 });
 
-// 현재 월 설정
-function setCurrentMonth() {
-    const currentMonth = new Date().getMonth() + 1;
-    monthSelect.value = currentMonth;
-}
-
-// 고객 목록 로드 (고객 선택 드롭다운용)
-async function loadCustomers() {
-    try {
-        // auth.users에서 모든 사용자 가져오기 (관리자 제외)
-        const { data: { users }, error } = await supabaseClient.auth.admin.listUsers();
-        
-        if (error) {
-            // admin API 접근 불가시 대체 방법
-            await loadCustomersFromProfiles();
-            return;
-        }
-        
-        const customers = users.filter(user => !ADMIN_EMAILS.includes(user.email));
-        populateCustomerSelect(customers);
-        
-    } catch (error) {
-        console.error('Error loading customers:', error);
-        await loadCustomersFromProfiles();
-    }
-}
-
-// profiles 테이블에서 고객 로드 (대체 방법)
-async function loadCustomersFromProfiles() {
-    try {
-        const { data: profiles, error } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (error && error.code === '42P01') {
-            // 테이블이 없는 경우
-            populateCustomerSelect([]);
-            return;
-        }
-        
-        if (profiles && profiles.length > 0) {
-            populateCustomerSelect(profiles);
-        } else {
-            // profiles 테이블은 있지만 데이터가 없는 경우 - auth users 직접 조회
-            await loadCustomersDirectly();
-        }
-    } catch (error) {
-        console.error('Error loading profiles:', error);
-        await loadCustomersDirectly();
-    }
-}
-
-// 직접 사용자 조회 (Supabase에서 가입한 사용자)
-async function loadCustomersDirectly() {
-    try {
-        // sales_reports 테이블에서 user_id 목록 가져오기
-        const { data: salesData, error } = await supabaseClient
-            .from('sales_reports')
-            .select('user_id')
-            .limit(100);
-        
-        if (error && error.code === '42P01') {
-            populateCustomerSelect([]);
-            return;
-        }
-        
-        if (salesData && salesData.length > 0) {
-            const uniqueUserIds = [...new Set(salesData.map(s => s.user_id))];
-            const customers = uniqueUserIds.map(id => ({ id, email: `User ${id.slice(0, 8)}...` }));
-            populateCustomerSelect(customers);
-        } else {
-            populateCustomerSelect([]);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        populateCustomerSelect([]);
-    }
-}
-
-
-// 고객 선택 옵션 채우기
-function populateCustomerSelect(customers) {
-    if (!customers || customers.length === 0) {
-        if (customerSelect) customerSelect.innerHTML = '<option value="">등록된 고객이 없습니다</option>';
-        if (bulkCustomerSelect) bulkCustomerSelect.innerHTML = '<option value="">등록된 고객이 없습니다</option>';
-        if (fileCustomerSelect) fileCustomerSelect.innerHTML = '<option value="">등록된 고객이 없습니다</option>';
-        return;
-    }
+// 사용자 정보 업데이트
+function updateUserInfo() {
+    const currentUser = Storage.getUser();
+    const userNameEls = document.querySelectorAll('#userName, .admin-user-name');
+    const userEmailEls = document.querySelectorAll('#userEmail, .admin-user-email');
     
-    // 모든 고객 선택 드롭다운 초기화
-    if (customerSelect) customerSelect.innerHTML = '<option value="">고객을 선택하세요</option>';
-    if (bulkCustomerSelect) bulkCustomerSelect.innerHTML = '<option value="">고객을 선택하세요</option>';
-    if (fileCustomerSelect) fileCustomerSelect.innerHTML = '<option value="">고객을 선택하세요</option>';
+    userNameEls.forEach(el => el.textContent = '관리자');
+    userEmailEls.forEach(el => el.textContent = currentUser.email);
+}
+
+// 메뉴 전환 설정
+function setupTabs() {
+    const menuItems = document.querySelectorAll('.menu-item');
+    const menuContents = document.querySelectorAll('.menu-content');
     
-    customers.forEach(customer => {
-        const customerName = customer.user_metadata?.company_name || customer.company_name || '회사명 없음';
-        const displayText = `${customerName} (${customer.email})`;
-        
-        // 개별 등록 탭
-        if (customerSelect) {
-            const option1 = document.createElement('option');
-            option1.value = customer.id;
-            option1.textContent = displayText;
-            customerSelect.appendChild(option1);
-        }
-        
-        // 일괄 등록 탭
-        if (bulkCustomerSelect) {
-            const option2 = document.createElement('option');
-            option2.value = customer.id;
-            option2.textContent = displayText;
-            bulkCustomerSelect.appendChild(option2);
-        }
-        
-        // 파일 업로드 탭
-        if (fileCustomerSelect) {
-            const option3 = document.createElement('option');
-            option3.value = customer.id;
-            option3.textContent = displayText;
-            fileCustomerSelect.appendChild(option3);
+    // 메뉴 제목 매핑
+    const menuTitles = {
+        'users': { title: '사용자 목록', subtitle: '등록된 사용자를 관리합니다' },
+        'companies': { title: '회사 관리', subtitle: '등록된 회사 정보를 관리합니다' },
+        'manual-entry': { title: '매출 데이터 수기 등록', subtitle: '소량의 매출 데이터를 직접 입력하여 등록합니다' },
+        'upload': { title: '매출 데이터 업로드', subtitle: '엑셀 파일을 통해 매출 데이터를 일괄 등록합니다' },
+        'backup': { title: '백업/복원', subtitle: '데이터베이스 백업 및 복원 작업을 수행합니다' },
+        'stats': { title: '통계 현황', subtitle: '전체 시스템 통계를 확인합니다' },
+        'settings': { title: '시스템 설정', subtitle: '시스템 환경 설정 및 권한 관리' },
+        'logs': { title: '활동 로그', subtitle: '시스템 활동 기록을 확인합니다' }
+    };
+    
+    menuItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const menuName = item.dataset.menu;
+            
+            // 모든 메뉴 비활성화
+            menuItems.forEach(m => m.classList.remove('active'));
+            menuContents.forEach(c => c.classList.remove('active'));
+            
+            // 선택한 메뉴 활성화
+            item.classList.add('active');
+            const content = document.getElementById(`${menuName}-menu`);
+            if (content) {
+                content.classList.add('active');
+            }
+            
+            // 헤더 제목 업데이트
+            const titleInfo = menuTitles[menuName];
+            if (titleInfo) {
+                document.getElementById('contentTitle').textContent = titleInfo.title;
+                document.getElementById('contentSubtitle').textContent = titleInfo.subtitle;
+            }
+            
+            // 활동 로그에 기록
+            addActivityLog(`"${titleInfo.title}" 메뉴 조회`);
+        });
+    });
+    
+    // 초기 활동 로그 생성
+    generateInitialLogs();
+}
+
+// 로그아웃 설정
+function setupLogout() {
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        if (confirm('로그아웃 하시겠습니까?')) {
+            Storage.removeUser();
+            window.location.href = 'index.html';
         }
     });
 }
 
-// 매출 데이터 등록
-salesForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+// 버튼 이벤트 설정
+function setupButtons() {
+    // 사용자 추가 버튼
+    const addUserBtns = document.querySelectorAll('.btn-add');
+    addUserBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
+            if (currentTab === 'users') {
+                showMessage('사용자 추가 기능은 준비 중입니다.', 'info');
+            } else if (currentTab === 'companies') {
+                showMessage('회사 추가 기능은 준비 중입니다.', 'info');
+            }
+        });
+    });
     
-    const userId = customerSelect.value;
-    const year = parseInt(yearSelect.value);
-    const month = parseInt(monthSelect.value);
-    const category = categoryInput.value.trim();
-    const amount = parseFloat(amountInput.value);
-    const salesCount = salesCountInput.value ? parseInt(salesCountInput.value) : null;
-    const note = noteInput.value.trim() || null;
+    // 수정 버튼
+    const editBtns = document.querySelectorAll('.btn-edit');
+    editBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const row = e.target.closest('tr');
+            const userId = row.cells[0].textContent;
+            const email = row.cells[2].textContent;
+            openEditUserModal(email, userId);
+        });
+    });
     
-    if (!userId) {
-        showMessage('고객을 선택해주세요.', 'error');
-        return;
-    }
+    // 삭제 버튼
+    const deleteBtns = document.querySelectorAll('.btn-delete');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (confirm('정말 삭제하시겠습니까?')) {
+                const row = e.target.closest('tr');
+                const name = row.cells[1].textContent;
+                showMessage(`${name} 삭제가 완료되었습니다.`, 'success');
+                // 실제로는 서버에 삭제 요청을 보냄
+            }
+        });
+    });
     
-    if (!category) {
-        showMessage('매출 종류를 입력해주세요.', 'error');
-        return;
-    }
+    // 상세보기 버튼
+    const viewBtns = document.querySelectorAll('.btn-view');
+    viewBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            showMessage('상세보기 기능은 준비 중입니다.', 'info');
+        });
+    });
     
-    const submitBtn = salesForm.querySelector('.submit-btn');
-    submitBtn.disabled = true;
-    submitBtn.textContent = '등록 중...';
-    
-    try {
-        // 기존 데이터 확인 (같은 사용자, 연도, 월, 카테고리)
-        const { data: existing } = await supabaseClient
-            .from('sales_reports')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('year', year)
-            .eq('month', month)
-            .eq('category', category)
-            .single();
-        
-        if (existing) {
-            // 업데이트
-            const { error } = await supabaseClient
-                .from('sales_reports')
-                .update({
-                    amount,
-                    sales_count: salesCount,
-                    note,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existing.id);
-            
-            if (error) throw error;
-            showMessage('매출 데이터가 업데이트되었습니다.', 'success');
-        } else {
-            // 새로 등록
-            const { error } = await supabaseClient
-                .from('sales_reports')
-                .insert({
-                    user_id: userId,
-                    year,
-                    month,
-                    category,
-                    amount,
-                    sales_count: salesCount,
-                    note
-                });
-            
-            if (error) throw error;
-            showMessage('매출 데이터가 등록되었습니다.', 'success');
-        }
-        
-        // 폼 초기화
-        salesForm.reset();
-        setCurrentMonth();
-        await loadCategories();
-        
-    } catch (error) {
-        console.error('Error saving sales:', error);
-        showMessage('저장 중 오류가 발생했습니다: ' + error.message, 'error');
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '매출 등록';
-    }
-});
-
-// 카테고리 목록 로드 (자동완성용)
-async function loadCategories() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('sales_reports')
-            .select('category')
-            .not('category', 'is', null);
-        
-        if (error) throw error;
-        
-        // 중복 제거
-        const uniqueCategories = [...new Set(data.map(d => d.category).filter(c => c))];
-        
-        // datalist 업데이트
-        categoryList.innerHTML = uniqueCategories
-            .map(cat => `<option value="${cat}">`)
-            .join('');
-            
-    } catch (error) {
-        console.error('Error loading categories:', error);
-    }
+    // 액션 카드 버튼들
+    const actionBtns = document.querySelectorAll('.action-card .btn-primary');
+    actionBtns.forEach((btn, index) => {
+        btn.addEventListener('click', () => {
+            if (index === 0) {
+                // 백업
+                showMessage('데이터베이스 백업을 시작합니다...', 'info');
+                setTimeout(() => {
+                    showMessage('백업이 완료되었습니다!', 'success');
+                }, 2000);
+            } else if (index === 1) {
+                // 내보내기
+                showMessage('데이터를 CSV 파일로 내보냅니다...', 'info');
+                setTimeout(() => {
+                    showMessage('내보내기가 완료되었습니다!', 'success');
+                }, 1500);
+            } else if (index === 2) {
+                // 동기화
+                showMessage('데이터 동기화를 시작합니다...', 'info');
+                setTimeout(() => {
+                    showMessage('동기화가 완료되었습니다!', 'success');
+                }, 2500);
+            }
+        });
+    });
 }
 
-
-// 메시지 표시
-function showMessage(text, type) {
-    messageEl.textContent = text;
-    messageEl.className = `message ${type}`;
+// 메시지 표시 함수
+function showMessage(message, type = 'info') {
+    const existingMsg = document.querySelector('.message-box');
+    if (existingMsg) {
+        existingMsg.remove();
+    }
+    
+    const messageBox = document.createElement('div');
+    messageBox.className = `message-box message-${type}`;
+    messageBox.textContent = message;
+    
+    messageBox.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        animation: slideInRight 0.3s ease;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    `;
+    
+    if (type === 'success') {
+        messageBox.style.background = '#10B981';
+        messageBox.style.color = 'white';
+    } else if (type === 'error') {
+        messageBox.style.background = '#EF4444';
+        messageBox.style.color = 'white';
+    } else {
+        messageBox.style.background = '#3B82F6';
+        messageBox.style.color = 'white';
+    }
+    
+    document.body.appendChild(messageBox);
     
     setTimeout(() => {
-        messageEl.className = 'message';
-    }, 5000);
+        messageBox.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => messageBox.remove(), 300);
+    }, 3000);
 }
 
-// 통화 포맷
-function formatCurrency(amount) {
-    return '₩' + Math.round(amount).toLocaleString('ko-KR');
-}
-
-// 날짜 포맷
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR');
-}
-
-
-// ==========================================
-// 탭 메뉴 기능
-// ==========================================
-tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        const tabId = btn.dataset.tab;
-        
-        // 모든 탭 버튼 비활성화
-        tabBtns.forEach(b => b.classList.remove('active'));
-        // 모든 탭 콘텐츠 숨기기
-        tabContents.forEach(c => c.classList.remove('active'));
-        
-        // 선택한 탭 활성화
-        btn.classList.add('active');
-        document.getElementById(tabId + 'Tab').classList.add('active');
-    });
-});
-
-// ==========================================
-// 일괄 등록 (복사/붙여넣기) 기능
-// ==========================================
-
-// 붙여넣기 영역 이벤트
-pasteArea.addEventListener('input', handlePasteData);
-pasteArea.addEventListener('paste', (e) => {
-    // 약간의 딜레이 후 처리 (붙여넣기 완료 대기)
-    setTimeout(handlePasteData, 100);
-});
-
-// 데이터 파싱 및 미리보기
-function handlePasteData() {
-    const rawData = pasteArea.value.trim();
+// 엑셀 업로드 기능 설정
+function setupExcelUpload() {
+    const downloadBtn = document.getElementById('downloadTemplateBtn');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('excelFileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const closeResultBtn = document.getElementById('closeResultBtn');
     
-    if (!rawData) {
-        previewSection.style.display = 'none';
-        bulkUploadBtn.disabled = true;
-        parsedData = [];
-        return;
+    // 양식 다운로드
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadExcelTemplate);
     }
     
-    // 데이터 파싱
-    parsedData = parseSpreadsheetData(rawData);
-    
-    if (parsedData.length > 0) {
-        displayPreview(parsedData);
-        previewSection.style.display = 'block';
-        bulkUploadBtn.disabled = false;
-    } else {
-        previewSection.style.display = 'none';
-        bulkUploadBtn.disabled = true;
-        showBulkMessage('데이터 형식이 올바르지 않습니다. 형식을 확인해주세요.', 'error');
-    }
-}
-
-// 스프레드시트 데이터 파싱
-function parseSpreadsheetData(rawData) {
-    const lines = rawData.split('\n').filter(line => line.trim());
-    const result = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
+    // 파일 업로드 영역 클릭
+    if (uploadArea) {
+        uploadArea.addEventListener('click', () => fileInput.click());
         
-        // 탭 또는 여러 공백으로 분리
-        const columns = line.split(/\t+/);
+        // 드래그 앤 드롭
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
         
-        // 최소 3개 컬럼 필요
-        if (columns.length < 3) {
-            result.push({
-                row: i + 1,
-                error: true,
-                errorMessage: '컬럼 수 부족 (최소 3개 필요)',
-                raw: line
-            });
-            continue;
-        }
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
         
-        let year, month, category, amount, salesCount = null, note = null;
-        
-        // 첫 번째 컬럼 확인: YYYYMMDD 형식인지, YYYY 형식인지
-        const firstCol = columns[0].trim();
-        
-        if (firstCol.length === 8 && /^\d{8}$/.test(firstCol)) {
-            // YYYYMMDD 형식 (예: 20251231)
-            year = parseInt(firstCol.substring(0, 4));
-            month = parseInt(firstCol.substring(4, 6));
-            // 형식: YYYYMMDD, 매출액, 매출종류, [판매건수], [비고]
-            amount = parseNumber(columns[1]);
-            category = columns[2]?.trim();
-            salesCount = columns[3] ? parseInt(parseNumber(columns[3])) : null;
-            note = columns[4]?.trim() || null;
-        } else if (firstCol.length === 6 && /^\d{6}$/.test(firstCol)) {
-            // YYYYMM 형식 (예: 202512)
-            year = parseInt(firstCol.substring(0, 4));
-            month = parseInt(firstCol.substring(4, 6));
-            // 형식: YYYYMM, 매출액, 매출종류, [판매건수], [비고]
-            amount = parseNumber(columns[1]);
-            category = columns[2]?.trim();
-            salesCount = columns[3] ? parseInt(parseNumber(columns[3])) : null;
-            note = columns[4]?.trim() || null;
-        } else {
-            // 기본 형식: 연도, 월, 매출종류, 매출액, [판매건수], [비고]
-            year = parseInt(columns[0]);
-            month = parseInt(columns[1]);
-            category = columns[2]?.trim();
-            amount = parseNumber(columns[3]);
-            salesCount = columns[4] ? parseInt(parseNumber(columns[4])) : null;
-            note = columns[5]?.trim() || null;
-        }
-        
-        // 유효성 검사
-        if (isNaN(year) || year < 2000 || year > 2100) {
-            result.push({
-                row: i + 1,
-                error: true,
-                errorMessage: '연도 형식 오류',
-                raw: line
-            });
-            continue;
-        }
-        
-        if (isNaN(month) || month < 1 || month > 12) {
-            result.push({
-                row: i + 1,
-                error: true,
-                errorMessage: '월 형식 오류 (1-12)',
-                raw: line
-            });
-            continue;
-        }
-        
-        if (!category) {
-            result.push({
-                row: i + 1,
-                error: true,
-                errorMessage: '매출종류 누락',
-                raw: line
-            });
-            continue;
-        }
-        
-        if (isNaN(amount) || amount < 0) {
-            result.push({
-                row: i + 1,
-                error: true,
-                errorMessage: '매출액 형식 오류',
-                raw: line
-            });
-            continue;
-        }
-        
-        result.push({
-            row: i + 1,
-            error: false,
-            year,
-            month,
-            category,
-            amount,
-            salesCount: isNaN(salesCount) ? null : salesCount,
-            note
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
         });
     }
     
-    return result;
-}
-
-// 숫자 파싱 (쉼표, 공백 제거)
-function parseNumber(str) {
-    if (!str) return NaN;
-    // 쉼표, 공백, 원화 기호 등 제거
-    const cleaned = str.toString().replace(/[,\s₩원]/g, '');
-    return parseFloat(cleaned);
-}
-
-// 미리보기 표시
-function displayPreview(data) {
-    const validData = data.filter(d => !d.error);
-    const errorData = data.filter(d => d.error);
-    
-    previewCount.textContent = validData.length;
-    
-    let html = `
-        <table class="preview-table">
-            <thead>
-                <tr>
-                    <th>행</th>
-                    <th>연도</th>
-                    <th>월</th>
-                    <th>매출종류</th>
-                    <th>매출액</th>
-                    <th>판매건수</th>
-                    <th>비고</th>
-                    <th>상태</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    data.forEach(item => {
-        if (item.error) {
-            html += `
-                <tr class="error-row">
-                    <td>${item.row}</td>
-                    <td colspan="6">${item.raw}</td>
-                    <td>❌ ${item.errorMessage}</td>
-                </tr>
-            `;
-        } else {
-            html += `
-                <tr>
-                    <td>${item.row}</td>
-                    <td>${item.year}년</td>
-                    <td>${item.month}월</td>
-                    <td>${item.category}</td>
-                    <td class="amount">${formatCurrency(item.amount)}</td>
-                    <td>${item.salesCount || '-'}</td>
-                    <td>${item.note || '-'}</td>
-                    <td>✅</td>
-                </tr>
-            `;
-        }
-    });
-    
-    html += '</tbody></table>';
-    
-    if (errorData.length > 0) {
-        html += `<p style="color: #dc2626; padding: 12px 16px; font-size: 14px;">⚠️ ${errorData.length}개 행에 오류가 있습니다. 오류 행은 제외하고 업로드됩니다.</p>`;
-    }
-    
-    previewTable.innerHTML = html;
-}
-
-// 일괄 등록 버튼 클릭
-bulkUploadBtn.addEventListener('click', async () => {
-    const userId = bulkCustomerSelect.value;
-    
-    if (!userId) {
-        showBulkMessage('고객을 선택해주세요.', 'error');
-        return;
-    }
-    
-    const validData = parsedData.filter(d => !d.error);
-    
-    if (validData.length === 0) {
-        showBulkMessage('업로드할 유효한 데이터가 없습니다.', 'error');
-        return;
-    }
-    
-    // 확인 메시지
-    if (!confirm(`${validData.length}건의 매출 데이터를 등록하시겠습니까?`)) {
-        return;
-    }
-    
-    bulkUploadBtn.disabled = true;
-    uploadProgress.style.display = 'block';
-    
-    let successCount = 0;
-    let errorCount = 0;
-    
-    for (let i = 0; i < validData.length; i++) {
-        const item = validData[i];
-        
-        try {
-            // 기존 데이터 확인 (카테고리 포함)
-            const { data: existing } = await supabaseClient
-                .from('sales_reports')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('year', item.year)
-                .eq('month', item.month)
-                .eq('category', item.category)
-                .single();
-            
-            if (existing) {
-                // 업데이트
-                const { error } = await supabaseClient
-                    .from('sales_reports')
-                    .update({
-                        amount: item.amount,
-                        sales_count: item.salesCount,
-                        note: item.note,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', existing.id);
-                
-                if (error) throw error;
-            } else {
-                // 새로 등록
-                const { error } = await supabaseClient
-                    .from('sales_reports')
-                    .insert({
-                        user_id: userId,
-                        year: item.year,
-                        month: item.month,
-                        category: item.category,
-                        amount: item.amount,
-                        sales_count: item.salesCount,
-                        note: item.note
-                    });
-                
-                if (error) throw error;
+    // 파일 선택
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
             }
-            
-            successCount++;
-        } catch (error) {
-            console.error('Error uploading row:', item, error);
-            errorCount++;
-        }
-        
-        // 진행률 업데이트
-        const progress = Math.round(((i + 1) / validData.length) * 100);
-        progressFill.style.width = progress + '%';
-        progressText.textContent = `업로드 중... ${progress}% (${i + 1}/${validData.length})`;
+        });
     }
     
-    // 완료
-    uploadProgress.style.display = 'none';
-    bulkUploadBtn.disabled = false;
-    
-    if (errorCount > 0) {
-        showBulkMessage(`완료: ${successCount}건 성공, ${errorCount}건 실패`, 'error');
-    } else {
-        showBulkMessage(`${successCount}건의 매출 데이터가 성공적으로 등록되었습니다.`, 'success');
+    // 업로드 버튼
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', uploadExcelData);
     }
     
-    // 초기화
-    clearBulkForm();
-});
-
-// 일괄 등록 폼 초기화
-function clearBulkForm() {
-    pasteArea.value = '';
-    parsedData = [];
-    previewSection.style.display = 'none';
-    bulkUploadBtn.disabled = true;
-    progressFill.style.width = '0%';
-}
-
-clearBulkBtn.addEventListener('click', clearBulkForm);
-clearPreviewBtn.addEventListener('click', clearBulkForm);
-
-// 벌크 메시지 표시
-function showBulkMessage(text, type) {
-    bulkMessageEl.textContent = text;
-    bulkMessageEl.className = `message ${type}`;
-    
-    setTimeout(() => {
-        bulkMessageEl.className = 'message';
-    }, 5000);
-}
-
-// 고객 선택 옵션 동기화 (모든 탭의 고객 선택 드롭다운 업데이트)
-function syncCustomerSelects(customers) {
-    populateCustomerSelect(customers);
-}
-
-// ========================================
-// 파일 업로드 기능
-// ========================================
-
-// 파일 선택 버튼 클릭
-fileSelectBtn.addEventListener('click', () => {
-    fileUpload.click();
-});
-
-// 엑셀 템플릿 다운로드 버튼 클릭
-templateDownloadBtn.addEventListener('click', () => {
-    downloadExcelTemplate();
-});
-
-// 파일 선택 변경
-fileUpload.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    fileName.textContent = file.name;
-    fileMessage.className = 'message';
-    fileMessage.textContent = '';
-    fileParsedData = [];
-    filePreviewSection.style.display = 'none';
-    fileUploadBtn.disabled = true;
-    
-    try {
-        const fileType = file.name.split('.').pop().toLowerCase();
-        
-        if (fileType === 'xlsx' || fileType === 'xls') {
-            await parseExcelFile(file);
-        } else {
-            showFileMessage('지원하지 않는 파일 형식입니다. 엑셀(.xlsx, .xls) 파일을 업로드해주세요.', 'error');
-            return;
-        }
-        
-        if (fileParsedData.length > 0) {
-            displayFilePreview(fileParsedData);
-            fileUploadBtn.disabled = !fileCustomerSelect.value;
-        } else {
-            showFileMessage('파일에서 매출 데이터를 찾을 수 없습니다. 파일 형식을 확인해주세요.', 'error');
-        }
-    } catch (error) {
-        console.error('Error parsing file:', error);
-        showFileMessage('파일 파싱 중 오류가 발생했습니다: ' + error.message, 'error');
+    // 결과 닫기
+    if (closeResultBtn) {
+        closeResultBtn.addEventListener('click', () => {
+            document.getElementById('uploadResult').style.display = 'none';
+        });
     }
-});
-
-// 고객 선택 변경 시 업로드 버튼 활성화
-fileCustomerSelect.addEventListener('change', () => {
-    fileUploadBtn.disabled = !fileCustomerSelect.value || fileParsedData.length === 0;
-});
-
-// 엑셀 파일 파싱
-async function parseExcelFile(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
-                fileParsedData = [];
-                
-                // 모든 시트를 순회
-                workbook.SheetNames.forEach(sheetName => {
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-                    
-                    // 데이터 파싱
-                    jsonData.forEach((row, rowIndex) => {
-                        if (rowIndex === 0) return; // 헤더 스킵
-                        
-                        const parsed = parseRowData(row);
-                        if (parsed) {
-                            fileParsedData.push(parsed);
-                        }
-                    });
-                });
-                
-                resolve();
-            } catch (error) {
-                reject(error);
-            }
-        };
-        
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-    });
 }
 
-
-// 엑셀 템플릿 다운로드
+// 엑셀 양식 다운로드
 function downloadExcelTemplate() {
+    // 양식 데이터
+    const templateData = [
+        ['날짜', '거래처', '카테고리', '금액', '상태', '비고'],
+        ['2026-02-01', '(주)샘플거래처', '제품 판매', '15000000', 'completed', ''],
+        ['2026-02-02', '테스트기업', '서비스', '8500000', 'completed', ''],
+        ['2026-02-03', '예시회사', '구독', '2500000', 'pending', '확인 필요'],
+    ];
+    
     // 워크북 생성
     const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
     
-    // 헤더 정의
-    const headers = ['연도', '월', '매출종류', '매출액', '판매건수', '비고'];
-    
-    // 예시 데이터
-    const exampleData = [
-        [2025, 1, '도서판매', 1000000, 50, '1월 도서판매'],
-        [2025, 1, '온라인판매', 500000, 30, '1월 온라인'],
-        [2025, 2, '도서판매', 1200000, 60, '2월 도서판매'],
-        [2025, 2, '온라인판매', 600000, 35, '2월 온라인']
-    ];
-    
-    // 데이터 배열 생성 (헤더 + 예시 데이터)
-    const data = [headers, ...exampleData];
-    
-    // 워크시트 생성
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    
-    // 컬럼 너비 설정
+    // 열 너비 설정
     ws['!cols'] = [
-        { wch: 8 },  // 연도
-        { wch: 5 },  // 월
-        { wch: 15 }, // 매출종류
-        { wch: 15 }, // 매출액
-        { wch: 12 }, // 판매건수
-        { wch: 20 }  // 비고
+        { wch: 12 },  // 날짜
+        { wch: 20 },  // 거래처
+        { wch: 15 },  // 카테고리
+        { wch: 15 },  // 금액
+        { wch: 12 },  // 상태
+        { wch: 20 }   // 비고
     ];
     
-    // 헤더 행 스타일 (굵게)
+    // 헤더 스타일 (첫 행)
     const headerRange = XLSX.utils.decode_range(ws['!ref']);
     for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
         const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
         if (!ws[cellAddress]) continue;
         ws[cellAddress].s = {
             font: { bold: true },
-            fill: { fgColor: { rgb: "E0E0E0" } },
-            alignment: { horizontal: "center", vertical: "center" }
+            fill: { fgColor: { rgb: "4F46E5" } }
         };
     }
     
-    // 워크시트를 워크북에 추가
-    XLSX.utils.book_append_sheet(wb, ws, '매출데이터');
-    
-    // 파일명 생성
-    const fileName = `매출데이터_업로드양식_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.utils.book_append_sheet(wb, ws, "매출데이터");
     
     // 파일 다운로드
-    XLSX.writeFile(wb, fileName);
+    XLSX.writeFile(wb, "매출데이터_업로드양식.xlsx");
     
-    showFileMessage('엑셀 양식이 다운로드되었습니다. 양식에 데이터를 작성한 후 업로드해주세요.', 'success');
+    showMessage('엑셀 양식이 다운로드되었습니다!', 'success');
 }
 
-// 행 데이터 파싱 (템플릿 형식에 맞춤)
-function parseRowData(row) {
-    if (!row || row.length < 4) return null;
-    
-    // 배열이 아닌 경우 변환
-    const data = Array.isArray(row) ? row : (typeof row === 'string' ? row.split(/\t+/) : [row]);
-    
-    // 템플릿 형식: 연도, 월, 매출종류, 매출액, 판매건수(선택), 비고(선택)
-    if (data.length >= 4) {
-        const year = parseInt(data[0]);
-        const month = parseInt(data[1]);
-        const category = String(data[2] || '').trim();
-        const amount = parseNumber(data[3]);
-        const salesCount = data[4] ? parseInt(parseNumber(data[4])) : null;
-        const note = data[5] ? String(data[5]).trim() : null;
-        
-        // 유효성 검사
-        if (isNaN(year) || year < 2000 || year > 2100) return null;
-        if (isNaN(month) || month < 1 || month > 12) return null;
-        if (!category) return null;
-        if (isNaN(amount) || amount <= 0) return null;
-        
-        return {
-            year,
-            month,
-            amount,
-            category,
-            salesCount,
-            note
-        };
-    }
-    
-    // 기존 자동 인식 로직 (하위 호환성)
-    let year = null;
-    let month = null;
-    let amount = null;
-    let category = null;
-    
-    // 숫자와 날짜 패턴 찾기
-    for (let i = 0; i < data.length; i++) {
-        const item = String(data[i]).trim().replace(/,/g, '');
-        
-        // 날짜 패턴: YYYYMMDD 또는 YYYY-MM-DD
-        if (/^\d{8}$/.test(item)) {
-            year = parseInt(item.substring(0, 4));
-            month = parseInt(item.substring(4, 6));
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(item)) {
-            const parts = item.split('-');
-            year = parseInt(parts[0]);
-            month = parseInt(parts[1]);
-        } else if (/^\d{4}$/.test(item) && !year) {
-            year = parseInt(item);
-        } else if (/^[1-9]|1[0-2]$/.test(item) && !month && year) {
-            month = parseInt(item);
-        }
-        
-        // 매출액 패턴 (큰 숫자)
-        if (/^\d{6,}$/.test(item) && !amount) {
-            amount = parseFloat(item);
-        } else if (/^\d+\.?\d*$/.test(item) && parseFloat(item) > 1000 && !amount) {
-            amount = parseFloat(item);
-        }
-        
-        // 카테고리 (한글이나 영문 텍스트)
-        if (!category && /[가-힣a-zA-Z]/.test(item) && !year && !month && !amount) {
-            category = item;
-        }
-    }
-    
-    // 연도와 월이 없으면 현재 연도/월 사용
-    if (!year) {
-        const now = new Date();
-        year = now.getFullYear();
-    }
-    if (!month) {
-        month = new Date().getMonth() + 1;
-    }
-    
-    // 매출액이 없으면 null 반환
-    if (!amount || amount <= 0) return null;
-    
-    return {
-        year,
-        month,
-        amount,
-        category: category || '일반',
-        salesCount: null,
-        note: null
-    };
-}
+// 파일 선택 처리
+let selectedFile = null;
 
-// 파일 미리보기 표시
-function displayFilePreview(data) {
-    if (!data || data.length === 0) {
-        filePreviewSection.style.display = 'none';
+function handleFileSelect(file) {
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+        showMessage('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error');
         return;
     }
     
-    filePreviewCount.textContent = data.length;
+    selectedFile = file;
     
-    const tableHTML = `
-        <table class="preview-table">
-            <thead>
-                <tr>
-                    <th>연도</th>
-                    <th>월</th>
-                    <th>매출종류</th>
-                    <th>매출액</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${data.map(item => `
-                    <tr>
-                        <td>${item.year}년</td>
-                        <td>${item.month}월</td>
-                        <td>${item.category}</td>
-                        <td>${formatCurrency(item.amount)}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
+    // 업로드 영역 업데이트
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.querySelector('.upload-content').innerHTML = `
+        <div class="upload-icon">✓</div>
+        <p><strong>${file.name}</strong></p>
+        <p class="file-info">크기: ${(file.size / 1024).toFixed(2)} KB</p>
     `;
     
-    filePreviewTable.innerHTML = tableHTML;
-    filePreviewSection.style.display = 'block';
+    // 업로드 버튼 활성화
+    document.getElementById('uploadBtn').disabled = false;
 }
 
-// 파일 업로드 버튼 클릭
-fileUploadBtn.addEventListener('click', async () => {
-    const userId = fileCustomerSelect.value;
+// 엑셀 데이터 업로드
+function uploadExcelData() {
+    const targetUser = document.getElementById('targetUserSelect').value;
     
-    if (!userId) {
-        showFileMessage('고객을 선택해주세요.', 'error');
+    if (!targetUser) {
+        showMessage('대상 사용자를 선택해주세요.', 'error');
         return;
     }
     
-    if (fileParsedData.length === 0) {
-        showFileMessage('등록할 데이터가 없습니다.', 'error');
+    if (!selectedFile) {
+        showMessage('파일을 선택해주세요.', 'error');
         return;
     }
     
-    fileUploadBtn.disabled = true;
-    fileUploadProgress.style.display = 'block';
-    fileProgressFill.style.width = '0%';
-    fileProgressText.textContent = '업로드 중... 0%';
+    showMessage('데이터를 업로드하는 중...', 'info');
     
-    let successCount = 0;
-    let errorCount = 0;
+    const reader = new FileReader();
     
-    for (let i = 0; i < fileParsedData.length; i++) {
-        const item = fileParsedData[i];
-        
+    reader.onload = (e) => {
         try {
-            // 기존 데이터 확인
-            const { data: existing } = await supabaseClient
-                .from('sales_reports')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('year', item.year)
-                .eq('month', item.month)
-                .eq('category', item.category)
-                .single();
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
             
-            if (existing) {
-                // 업데이트
-                const { error } = await supabaseClient
-                    .from('sales_reports')
-                    .update({
-                        amount: item.amount,
-                        sales_count: item.salesCount,
-                        note: item.note,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', existing.id);
+            // 첫 번째 시트 읽기
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // JSON으로 변환 (헤더 첫 행)
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            // 데이터 검증 및 변환
+            const result = processExcelData(jsonData, targetUser);
+            
+            // 결과 표시
+            displayUploadResult(result);
+            
+            if (result.errors.length === 0) {
+                showMessage('데이터 업로드가 완료되었습니다!', 'success');
                 
-                if (error) throw error;
+                // 파일 입력 초기화
+                document.getElementById('excelFileInput').value = '';
+                selectedFile = null;
+                document.getElementById('uploadBtn').disabled = true;
+                
+                // 업로드 영역 초기화
+                const uploadArea = document.getElementById('uploadArea');
+                uploadArea.querySelector('.upload-content').innerHTML = `
+                    <div class="upload-icon">+</div>
+                    <p><strong>파일을 드래그하거나 클릭하여 선택하세요</strong></p>
+                    <p class="file-info">지원 형식: .xlsx, .xls</p>
+                `;
             } else {
-                // 새로 등록
-                const { error } = await supabaseClient
-                    .from('sales_reports')
-                    .insert({
-                        user_id: userId,
-                        year: item.year,
-                        month: item.month,
-                        category: item.category,
-                        amount: item.amount,
-                        sales_count: item.salesCount,
-                        note: item.note
-                    });
-                
-                if (error) throw error;
+                showMessage(`${result.errors.length}개의 오류가 발생했습니다.`, 'error');
             }
             
-            successCount++;
         } catch (error) {
-            console.error('Error uploading row:', item, error);
-            errorCount++;
+            console.error('파일 읽기 오류:', error);
+            showMessage('파일을 읽는 중 오류가 발생했습니다.', 'error');
+        }
+    };
+    
+    reader.readAsArrayBuffer(selectedFile);
+}
+
+// 엑셀 데이터 처리
+function processExcelData(jsonData, targetUser) {
+    const result = {
+        total: 0,
+        success: 0,
+        errors: [],
+        validTransactions: []
+    };
+    
+    // 헤더 제외 (첫 행)
+    const dataRows = jsonData.slice(1);
+    result.total = dataRows.length;
+    
+    dataRows.forEach((row, index) => {
+        const rowNum = index + 2; // 엑셀 행 번호 (헤더 다음부터)
+        
+        // 빈 행 건너뛰기
+        if (!row || row.length === 0 || !row[0]) {
+            return;
         }
         
-        // 진행률 업데이트
-        const progress = Math.round(((i + 1) / fileParsedData.length) * 100);
-        fileProgressFill.style.width = progress + '%';
-        fileProgressText.textContent = `업로드 중... ${progress}% (${i + 1}/${fileParsedData.length})`;
+        try {
+            // 데이터 검증
+            const transaction = {
+                date: row[0],
+                client: row[1],
+                category: row[2],
+                amount: parseFloat(row[3]),
+                status: row[4] || 'completed'
+            };
+            
+            // 필수 필드 검증
+            if (!transaction.date) {
+                throw new Error('날짜가 없습니다');
+            }
+            if (!transaction.client) {
+                throw new Error('거래처가 없습니다');
+            }
+            if (!transaction.category) {
+                throw new Error('카테고리가 없습니다');
+            }
+            if (isNaN(transaction.amount) || transaction.amount <= 0) {
+                throw new Error('금액이 올바르지 않습니다');
+            }
+            
+            // 상태 검증
+            if (!['completed', 'pending', 'cancelled'].includes(transaction.status)) {
+                transaction.status = 'completed';
+            }
+            
+            result.validTransactions.push(transaction);
+            result.success++;
+            
+        } catch (error) {
+            result.errors.push({
+                row: rowNum,
+                message: error.message
+            });
+        }
+    });
+    
+    // localStorage에 데이터 저장
+    if (result.validTransactions.length > 0) {
+        saveTransactionsToStorage(targetUser, result.validTransactions);
     }
     
-    // 완료
-    fileUploadProgress.style.display = 'none';
-    fileUploadBtn.disabled = false;
+    return result;
+}
+
+// localStorage에 거래 데이터 저장
+function saveTransactionsToStorage(userEmail, transactions) {
+    const storageKey = `transactions_${userEmail}`;
     
-    if (errorCount > 0) {
-        showFileMessage(`${successCount}건 등록 완료, ${errorCount}건 실패했습니다.`, 'error');
+    // 기존 데이터 가져오기
+    let existingData = localStorage.getItem(storageKey);
+    let allTransactions = existingData ? JSON.parse(existingData) : [];
+    
+    // 새 데이터 추가
+    allTransactions = [...allTransactions, ...transactions];
+    
+    // 저장
+    localStorage.setItem(storageKey, JSON.stringify(allTransactions));
+}
+
+// 업로드 결과 표시
+function displayUploadResult(result) {
+    const resultDiv = document.getElementById('uploadResult');
+    
+    document.getElementById('totalRows').textContent = result.total;
+    document.getElementById('successRows').textContent = result.success;
+    document.getElementById('errorRows').textContent = result.errors.length;
+    
+    const errorDetails = document.getElementById('errorDetails');
+    if (result.errors.length > 0) {
+        errorDetails.innerHTML = '<h5 style="margin-bottom: 12px;">오류 상세:</h5>' +
+            result.errors.map(err => `
+                <div class="error-item">
+                    <strong>행 ${err.row}:</strong> ${err.message}
+                </div>
+            `).join('');
     } else {
-        showFileMessage(`${successCount}건의 데이터가 성공적으로 등록되었습니다.`, 'success');
-        // 초기화
-        clearFileUpload();
+        errorDetails.innerHTML = '';
+    }
+    
+    resultDiv.style.display = 'block';
+}
+
+// 활동 로그 추가
+const activityLogs = [];
+
+function addActivityLog(message) {
+    const now = new Date();
+    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    activityLogs.unshift({
+        time: timeStr,
+        message: message,
+        timestamp: now.getTime()
+    });
+    
+    // 최대 10개까지만 유지
+    if (activityLogs.length > 10) {
+        activityLogs.pop();
+    }
+    
+    updateActivityDisplay();
+}
+
+function updateActivityDisplay() {
+    const activityList = document.querySelector('.admin-right-panel .activity-list');
+    if (!activityList) return;
+    
+    activityList.innerHTML = activityLogs.slice(0, 5).map((log, index) => `
+        <div class="activity-item">
+            <div class="activity-content">
+                <div class="activity-text">${log.message}</div>
+                <div class="activity-time">${log.time}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function generateInitialLogs() {
+    const now = new Date();
+    addActivityLog('관리자 페이지 접속');
+    
+    // 시스템 로그 생성
+    const logsContainer = document.getElementById('systemLogs');
+    if (logsContainer) {
+        const logs = [
+            { time: '14:30', text: '관리자(admin@company.com)가 로그인했습니다' },
+            { time: '14:25', text: '사용자 목록을 조회했습니다' },
+            { time: '12:00', text: '자동 백업이 완료되었습니다' },
+            { time: '10:15', text: '데이터 업로드가 완료되었습니다 (5건)' },
+            { time: '09:00', text: '시스템 점검이 시작되었습니다' },
+            { time: '08:45', text: 'demo1@company.com이 로그인했습니다' },
+            { time: '08:30', text: 'demo2@company.com이 로그인했습니다' },
+        ];
+        
+        logsContainer.innerHTML = logs.map(log => `
+            <div class="log-item">
+                <div class="log-time">${log.time}</div>
+                <div class="log-text">${log.text}</div>
+            </div>
+        `).join('');
+    }
+}
+
+// 수기 등록 설정
+function setupManualEntry() {
+    const form = document.getElementById('manualEntryForm');
+    if (!form) return;
+    
+    // 오늘 날짜를 기본값으로 설정
+    const dateInput = document.getElementById('entryDate');
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+    dateInput.max = today; // 미래 날짜 선택 불가
+    
+    // 폼 제출 이벤트
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        // 폼 데이터 수집
+        const formData = {
+            date: document.getElementById('entryDate').value,
+            client: document.getElementById('entryClient').value.trim(),
+            category: document.getElementById('entryCategory').value,
+            amount: parseInt(document.getElementById('entryAmount').value),
+            status: document.getElementById('entryStatus').value,
+            user: document.getElementById('entryUser').value,
+            note: document.getElementById('entryNote').value.trim(),
+            id: Date.now() // 고유 ID 생성
+        };
+        
+        // 유효성 검사
+        if (!formData.date || !formData.client || !formData.category || 
+            !formData.amount || !formData.status || !formData.user) {
+            alert('필수 항목을 모두 입력해주세요.');
+            return;
+        }
+        
+        if (formData.amount <= 0) {
+            alert('금액은 0보다 커야 합니다.');
+            return;
+        }
+        
+        // 데이터 저장
+        saveManualEntry(formData);
+        
+        // 성공 메시지 표시
+        showEntrySuccess();
+        
+        // 폼 초기화
+        form.reset();
+        dateInput.value = today;
+        
+        // 활동 로그 추가
+        const userName = DEMO_USERS.find(u => u.email === formData.user)?.company || formData.user;
+        addActivityLog(`${userName}에 매출 데이터 1건을 등록했습니다`);
+    });
+    
+    // 금액 입력 포맷팅
+    const amountInput = document.getElementById('entryAmount');
+    amountInput.addEventListener('blur', function() {
+        if (this.value) {
+            // 천 단위 구분 (표시용)
+            const value = parseInt(this.value);
+            if (!isNaN(value)) {
+                this.dataset.formattedValue = formatCurrency(value);
+            }
+        }
+    });
+}
+
+// 수기 등록 데이터 저장
+function saveManualEntry(data) {
+    const targetEmail = data.user;
+    const storageKey = `transactions_${targetEmail}`;
+    
+    // 기존 데이터 가져오기
+    let transactions = [];
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            transactions = JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error('데이터 로드 오류:', error);
+    }
+    
+    // 새 거래 추가
+    const newTransaction = {
+        id: data.id,
+        date: data.date,
+        client: data.client,
+        category: data.category,
+        amount: data.amount,
+        status: data.status,
+        note: data.note || '',
+        createdAt: new Date().toISOString(),
+        createdBy: 'admin'
+    };
+    
+    transactions.push(newTransaction);
+    
+    // 저장
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(transactions));
+        console.log('매출 데이터 저장 완료:', newTransaction);
+    } catch (error) {
+        console.error('데이터 저장 오류:', error);
+        alert('데이터 저장 중 오류가 발생했습니다.');
+    }
+}
+
+// 등록 성공 메시지 표시
+function showEntrySuccess() {
+    const form = document.querySelector('.entry-form');
+    const successDiv = document.getElementById('entrySuccess');
+    
+    if (form && successDiv) {
+        form.style.display = 'none';
+        successDiv.style.display = 'block';
+        
+        // 확인 버튼 클릭 시 폼 다시 표시
+        const confirmBtn = successDiv.querySelector('.btn-primary');
+        confirmBtn.onclick = () => {
+            successDiv.style.display = 'none';
+            form.style.display = 'block';
+        };
+    }
+}
+
+// CSS 애니메이션 추가
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+// 사용자 및 회사 데이터 (실제로는 서버에서 관리)
+let usersData = [
+    {
+        id: 1,
+        name: '김철수',
+        email: 'demo1@company.com',
+        companies: ['테크노바 주식회사', '글로벌테크 주식회사'],
+        joinDate: '2025.12.01',
+        status: '활성'
+    },
+    {
+        id: 2,
+        name: '이영희',
+        email: 'demo2@company.com',
+        companies: ['미래산업 코퍼레이션'],
+        joinDate: '2025.12.15',
+        status: '활성'
+    }
+];
+
+const availableCompanies = [
+    { name: '테크노바 주식회사', number: '123-45-67890' },
+    { name: '미래산업 코퍼레이션', number: '987-65-43210' },
+    { name: '글로벌테크 주식회사', number: '345-67-89012' },
+    { name: '혁신솔루션즈', number: '456-78-90123' },
+    { name: '디지털플러스', number: '567-89-01234' }
+];
+
+// 현재 편집 중인 사용자
+let currentEditingUser = null;
+
+// 사용자 수정 모달 열기
+function openEditUserModal(email, userId) {
+    const user = usersData.find(u => u.email === email || u.id == userId);
+    if (!user) {
+        alert('사용자를 찾을 수 없습니다.');
+        return;
+    }
+    
+    currentEditingUser = { ...user };
+    
+    // 폼 필드 채우기
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editUserName').value = user.name;
+    document.getElementById('editUserEmail').value = user.email;
+    document.getElementById('editUserStatus').value = user.status;
+    
+    // 회사 목록 표시
+    renderUserCompanies();
+    
+    // 회사 추가 셀렉트 초기화
+    populateCompanySelect();
+    
+    // 모달 표시
+    document.getElementById('editUserModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    addActivityLog(`${user.name} 사용자 정보 수정 모달을 열었습니다`);
+}
+
+// 사용자 수정 모달 닫기
+function closeEditUserModal() {
+    document.getElementById('editUserModal').style.display = 'none';
+    document.body.style.overflow = '';
+    currentEditingUser = null;
+    
+    // 회사 추가 영역 숨기기
+    document.getElementById('addCompanySelect').style.display = 'none';
+}
+
+// 사용자의 회사 목록 렌더링
+function renderUserCompanies() {
+    const container = document.getElementById('editUserCompanies');
+    
+    if (!currentEditingUser.companies || currentEditingUser.companies.length === 0) {
+        container.innerHTML = '<div class="companies-empty">등록된 회사가 없습니다</div>';
+        return;
+    }
+    
+    container.innerHTML = currentEditingUser.companies.map(companyName => {
+        const company = availableCompanies.find(c => c.name === companyName);
+        return `
+            <div class="company-item">
+                <div class="company-info">
+                    <div class="company-name">${companyName}</div>
+                    <div class="company-number">${company ? company.number : '사업자번호 없음'}</div>
+                </div>
+                <button type="button" class="btn-remove-company" onclick="removeCompanyFromUser('${companyName}')">
+                    삭제
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+// 회사 선택 드롭다운 채우기
+function populateCompanySelect() {
+    const select = document.getElementById('companyToAdd');
+    
+    // 이미 추가된 회사 제외
+    const availableToAdd = availableCompanies.filter(company => 
+        !currentEditingUser.companies.includes(company.name)
+    );
+    
+    select.innerHTML = '<option value="">회사를 선택하세요</option>' + 
+        availableToAdd.map(company => 
+            `<option value="${company.name}">${company.name} (${company.number})</option>`
+        ).join('');
+}
+
+// 회사 추가 영역 표시
+function showAddCompanySelect() {
+    populateCompanySelect();
+    document.getElementById('addCompanySelect').style.display = 'block';
+}
+
+// 회사 추가 취소
+function cancelAddCompany() {
+    document.getElementById('addCompanySelect').style.display = 'none';
+    document.getElementById('companyToAdd').value = '';
+}
+
+// 사용자에게 회사 추가
+function addCompanyToUser() {
+    const select = document.getElementById('companyToAdd');
+    const companyName = select.value;
+    
+    if (!companyName) {
+        alert('회사를 선택해주세요.');
+        return;
+    }
+    
+    if (currentEditingUser.companies.includes(companyName)) {
+        alert('이미 추가된 회사입니다.');
+        return;
+    }
+    
+    currentEditingUser.companies.push(companyName);
+    renderUserCompanies();
+    cancelAddCompany();
+    
+    addActivityLog(`${currentEditingUser.name}에게 ${companyName}를 추가했습니다`);
+}
+
+// 사용자에게서 회사 제거
+function removeCompanyFromUser(companyName) {
+    if (currentEditingUser.companies.length <= 1) {
+        alert('최소 1개 이상의 회사가 필요합니다.');
+        return;
+    }
+    
+    if (confirm(`${companyName}을(를) 삭제하시겠습니까?`)) {
+        currentEditingUser.companies = currentEditingUser.companies.filter(c => c !== companyName);
+        renderUserCompanies();
+        populateCompanySelect();
+        
+        addActivityLog(`${currentEditingUser.name}에게서 ${companyName}를 제거했습니다`);
+    }
+}
+
+// 사용자 변경사항 저장
+function saveUserChanges() {
+    if (!currentEditingUser) return;
+    
+    // 폼 데이터 수집
+    const name = document.getElementById('editUserName').value.trim();
+    const status = document.getElementById('editUserStatus').value;
+    
+    // 유효성 검사
+    if (!name) {
+        alert('이름을 입력해주세요.');
+        return;
+    }
+    
+    if (currentEditingUser.companies.length === 0) {
+        alert('최소 1개 이상의 회사를 추가해주세요.');
+        return;
+    }
+    
+    // 데이터 업데이트
+    const userIndex = usersData.findIndex(u => u.id === currentEditingUser.id);
+    if (userIndex !== -1) {
+        usersData[userIndex] = {
+            ...usersData[userIndex],
+            name: name,
+            status: status,
+            companies: [...currentEditingUser.companies]
+        };
+        
+        // 테이블 및 드롭다운 업데이트
+        updateUsersTable();
+        updateUserSelects();
+        updateCompaniesTable();
+        updateStats();
+        
+        // 성공 메시지
+        showMessage(`${name} 사용자 정보가 업데이트되었습니다.`, 'success');
+        
+        addActivityLog(`${name} 사용자 정보를 수정했습니다`);
+        
+        // 모달 닫기
+        closeEditUserModal();
+    }
+}
+
+// 회사 테이블 업데이트
+function updateCompaniesTable() {
+    const tbody = document.getElementById('companiesTable');
+    if (!tbody) return;
+    
+    tbody.innerHTML = availableCompanies.map((company, index) => {
+        // 이 회사를 사용하는 사용자 수 계산
+        const userCount = usersData.filter(user => 
+            user.companies.includes(company.name)
+        ).length;
+        
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${company.name}</td>
+                <td>${company.number}</td>
+                <td>${userCount}명</td>
+                <td>
+                    <button class="btn-small btn-edit">수정</button>
+                    <button class="btn-small btn-view">상세</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 통계 업데이트
+function updateStats() {
+    // 총 회사 수
+    const totalCompaniesEl = document.querySelector('.stats-grid .stat-card:nth-child(1) .stat-value');
+    if (totalCompaniesEl) {
+        totalCompaniesEl.textContent = availableCompanies.length;
+    }
+    
+    // 총 사용자 수
+    const totalUsersEl = document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-value');
+    if (totalUsersEl) {
+        totalUsersEl.textContent = usersData.length;
+    }
+}
+
+// 사용자 테이블 업데이트
+function updateUsersTable() {
+    const tbody = document.getElementById('usersTable');
+    if (!tbody) return;
+    
+    tbody.innerHTML = usersData.map(user => {
+        let companiesHtml;
+        if (user.companies.length === 1) {
+            // 회사가 1개인 경우 텍스트로 표시
+            companiesHtml = user.companies[0];
+        } else {
+            // 회사가 2개 이상인 경우 드롭다운으로 표시
+            companiesHtml = `
+                <div class="company-dropdown">
+                    <button class="company-dropdown-btn" onclick="toggleCompanyDropdown(${user.id}, event)">
+                        <span>${user.companies[0]} 외 ${user.companies.length - 1}개</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="company-dropdown-menu" id="companyMenu${user.id}">
+                        ${user.companies.map(company => `
+                            <div class="company-dropdown-item">${company}</div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        return `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td>${companiesHtml}</td>
+                <td><span class="status-badge completed">${user.status}</span></td>
+                <td>
+                    <button class="btn-small btn-edit" onclick="openEditUserModal('${user.email}', ${user.id})">수정</button>
+                    <button class="btn-small btn-delete">삭제</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 회사 드롭다운 토글
+function toggleCompanyDropdown(userId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    const menu = document.getElementById(`companyMenu${userId}`);
+    const btn = menu.previousElementSibling;
+    const allMenus = document.querySelectorAll('.company-dropdown-menu');
+    const allBtns = document.querySelectorAll('.company-dropdown-btn');
+    
+    // 다른 드롭다운 닫기
+    allMenus.forEach((m, index) => {
+        if (m !== menu) {
+            m.classList.remove('active');
+            allBtns[index]?.classList.remove('active');
+        }
+    });
+    
+    // 현재 드롭다운 토글
+    menu.classList.toggle('active');
+    btn.classList.toggle('active');
+}
+
+// 드롭다운 외부 클릭시 닫기
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.company-dropdown')) {
+        document.querySelectorAll('.company-dropdown-menu').forEach(menu => {
+            menu.classList.remove('active');
+        });
+        document.querySelectorAll('.company-dropdown-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
     }
 });
 
-// 파일 업로드 초기화
-clearFileBtn.addEventListener('click', clearFileUpload);
-clearFilePreview.addEventListener('click', () => {
-    fileParsedData = [];
-    filePreviewSection.style.display = 'none';
-    fileUploadBtn.disabled = true;
-    fileName.textContent = '선택된 파일이 없습니다';
-    fileUpload.value = '';
-});
-
-function clearFileUpload() {
-    fileParsedData = [];
-    filePreviewSection.style.display = 'none';
-    fileUploadBtn.disabled = true;
-    fileName.textContent = '선택된 파일이 없습니다';
-    fileUpload.value = '';
-    fileCustomerSelect.value = '';
-    fileMessage.className = 'message';
-    fileMessage.textContent = '';
-}
-
-// 파일 메시지 표시
-function showFileMessage(message, type) {
-    fileMessage.textContent = message;
-    fileMessage.className = `message ${type}`;
+// 사용자 선택 드롭다운 업데이트
+function updateUserSelects() {
+    const entryUserSelect = document.getElementById('entryUser');
+    const targetUserSelect = document.getElementById('targetUserSelect');
     
-    setTimeout(() => {
-        fileMessage.className = 'message';
-    }, 5000);
-}
-
-// 통화 포맷 함수
-function formatCurrency(amount) {
-    return '₩' + Math.round(amount).toLocaleString('ko-KR');
+    const options = usersData.map(user => {
+        const companyText = user.companies.length > 0 ? user.companies[0] : '회사 없음';
+        return `<option value="${user.email}">${user.name} - ${companyText} (${user.email})</option>`;
+    }).join('');
+    
+    if (entryUserSelect) {
+        entryUserSelect.innerHTML = '<option value="">선택하세요</option>' + options;
+    }
+    
+    if (targetUserSelect) {
+        targetUserSelect.innerHTML = '<option value="">사용자를 선택하세요</option>' + options;
+    }
 }

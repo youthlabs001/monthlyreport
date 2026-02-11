@@ -3,90 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monthly Report - 회원가입</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <title>매출 대시보드 - 회원가입</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="login-container">
         <div class="login-box">
             <div class="logo">
-                <h1>📊 Monthly Report</h1>
-                <p>회원가입</p>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="60" height="60" rx="12" fill="#4F46E5"/>
+                    <path d="M20 25L30 35L40 25" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20 35L30 45L40 35" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
             </div>
+            <h1>회원가입</h1>
+            <p class="subtitle">새로운 계정을 만들어보세요</p>
             
             <form id="signupForm" class="login-form">
                 <div class="form-group">
+                    <label for="companyName">회사명</label>
+                    <input type="text" id="companyName" name="companyName" placeholder="회사명을 입력하세요" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="businessNumber">사업자등록번호</label>
+                    <input type="text" id="businessNumber" name="businessNumber" placeholder="000-00-00000" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="fullName">담당자 이름</label>
+                    <input type="text" id="fullName" name="fullName" placeholder="홍길동" required>
+                </div>
+                
+                <div class="form-group">
                     <label for="email">이메일</label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        placeholder="이메일을 입력하세요"
-                        required
-                    >
+                    <input type="email" id="email" name="email" placeholder="example@company.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">연락처</label>
+                    <input type="tel" id="phone" name="phone" placeholder="010-0000-0000" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="password">비밀번호</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="비밀번호를 입력하세요 (최소 6자)"
-                        minlength="6"
-                        required
-                    >
+                    <input type="password" id="password" name="password" placeholder="8자 이상 입력하세요" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="confirmPassword">비밀번호 확인</label>
-                    <input 
-                        type="password" 
-                        id="confirmPassword" 
-                        name="confirmPassword" 
-                        placeholder="비밀번호를 다시 입력하세요"
-                        minlength="6"
-                        required
-                    >
+                    <input type="password" id="confirmPassword" name="confirmPassword" placeholder="비밀번호를 다시 입력하세요" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="companyName">회사명</label>
-                    <input 
-                        type="text" 
-                        id="companyName" 
-                        name="companyName" 
-                        placeholder="회사명을 입력하세요"
-                        required
-                    >
+                <div class="form-options">
+                    <label class="checkbox">
+                        <input type="checkbox" id="agree" required>
+                        <span>이용약관 및 개인정보처리방침에 동의합니다</span>
+                    </label>
                 </div>
                 
-                <button type="submit" class="login-btn">회원가입</button>
-                
-                <div class="error-message" id="errorMessage"></div>
-                <div class="success-message" id="successMessage"></div>
+                <button type="submit" class="btn-primary">가입하기</button>
             </form>
             
-            <div class="login-footer">
-                <p>이미 계정이 있으신가요? <a href="index.html">로그인</a></p>
+            <div class="signup-link">
+                이미 계정이 있으신가요? <a href="index.html">로그인</a>
             </div>
         </div>
-        
-        <div class="login-info">
-            <h2>매출 현황을 한눈에</h2>
-            <ul>
-                <li>✓ 월별 매출 데이터 확인</li>
-                <li>✓ 직관적인 차트와 그래프</li>
-                <li>✓ 안전한 데이터 보호</li>
-                <li>✓ 언제 어디서나 접속 가능</li>
-            </ul>
-        </div>
     </div>
-
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    
     <script src="js/config.js"></script>
     <script src="js/signup.js"></script>
 </body>
