@@ -127,8 +127,56 @@ const DEMO_USERS = {
                 { date: '2026-02-05', client: '제조협력사', category: '제조', amount: 78900000, status: 'completed' }
             ]
         }
+    },
+    // 관리자 전용 계정
+    'admin@company.com': {
+        password: 'admin123',
+        fullName: '관리자',
+        isAdmin: true,
+        companyName: '관리자',
+        data: {
+            currentMonthRevenue: 0,
+            lastMonthRevenue: 0,
+            monthlyRevenue: [],
+            lastYearRevenue: [],
+            categories: [],
+            weeklyData: [],
+            quarterlyGrowth: [],
+            transactions: []
+        }
     }
 };
+
+// 관리자 화면에서 추가한 계정 로드 후 DEMO_USERS에 병합 (로그인 가능하도록)
+// 삭제된 관리자(demo_users_deleted)는 목록에서 제외
+(function mergeAddedAccounts() {
+    try {
+        const stored = localStorage.getItem('demo_users_additions');
+        if (stored) {
+            const additions = JSON.parse(stored);
+            Object.keys(additions).forEach(function(email) {
+                DEMO_USERS[email] = additions[email];
+            });
+        }
+        const deletedRaw = localStorage.getItem('demo_users_deleted');
+        if (deletedRaw) {
+            const deleted = JSON.parse(deletedRaw);
+            if (Array.isArray(deleted)) {
+                deleted.forEach(function(email) {
+                    delete DEMO_USERS[email];
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('추가 계정 로드 실패:', e);
+    }
+})();
+
+// 관리자 계정 여부 확인 (여러 관리자 지원)
+const ADMIN_EMAIL = 'admin@company.com';
+function isAdminUser(email) {
+    return DEMO_USERS[email] && DEMO_USERS[email].isAdmin === true;
+}
 
 // 숫자 포맷팅 함수
 function formatCurrency(amount) {

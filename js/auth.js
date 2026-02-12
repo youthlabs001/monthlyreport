@@ -4,9 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
     const demoBtns = document.querySelectorAll('.btn-demo');
     
-    // 이미 로그인된 경우 대시보드로 리다이렉트
+    // 이미 로그인된 경우 권한에 따라 리다이렉트
     if (Storage.isLoggedIn()) {
-        window.location.href = 'dashboard.html';
+        const user = Storage.getUser();
+        window.location.href = isAdminUser(user.email) ? 'admin.html' : 'dashboard.html';
         return;
     }
     
@@ -31,10 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     remember: remember
                 });
                 
-                // 성공 메시지와 함께 대시보드로 이동
+                // 성공 메시지와 함께 권한에 따라 이동 (관리자 → admin.html, 일반 → dashboard.html)
                 showMessage('로그인 성공!', 'success');
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = isAdminUser(email) ? 'admin.html' : 'dashboard.html';
                 }, 500);
             } else {
                 showMessage('비밀번호가 올바르지 않습니다.', 'error');

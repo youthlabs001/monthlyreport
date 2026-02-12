@@ -29,27 +29,18 @@ body {
         sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #ffffff;
     min-height: 100vh;
     color: var(--text-primary);
 }
 
 /* 로그인 컨테이너 */
 .login-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     min-height: 100vh;
-    gap: 0;
-}
-
-@media (max-width: 968px) {
-    .login-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .info-section {
-        display: none;
-    }
+    padding: 20px;
 }
 
 /* 로그인 박스 */
@@ -60,11 +51,10 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-}
-
-.logo {
-    margin-bottom: 30px;
-    animation: fadeInDown 0.6s ease;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
 }
 
 .login-box h1 {
@@ -174,40 +164,29 @@ body {
 }
 
 /* 데모 계정 */
-.demo-accounts {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border-color);
-}
-
-.demo-title {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-    text-align: center;
-}
-
-.demo-buttons {
-    display: flex;
-    gap: 12px;
-}
-
-.btn-demo {
-    flex: 1;
-    padding: 10px 16px;
-    font-size: 13px;
+/* 회원가입 버튼 */
+.btn-signup {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px 24px;
+    font-size: 15px;
     font-weight: 500;
     color: var(--primary-color);
-    background: rgba(79, 70, 229, 0.1);
-    border: 1px solid rgba(79, 70, 229, 0.2);
-    border-radius: 6px;
+    background: white;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
     cursor: pointer;
+    text-align: center;
+    text-decoration: none;
     transition: all 0.3s ease;
+    box-sizing: border-box;
 }
 
-.btn-demo:hover {
-    background: rgba(79, 70, 229, 0.15);
-    border-color: var(--primary-color);
+.btn-signup:hover {
+    background: rgba(79, 70, 229, 0.06);
+    border-color: var(--primary-dark);
+    color: var(--primary-dark);
 }
 
 /* 회원가입 링크 */
@@ -227,58 +206,6 @@ body {
 
 .signup-link a:hover {
     color: var(--primary-dark);
-}
-
-/* 정보 섹션 */
-.info-section {
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.95) 0%, rgba(99, 102, 241, 0.95) 100%);
-    padding: 60px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    color: white;
-}
-
-.info-section h2 {
-    font-size: 36px;
-    font-weight: 700;
-    margin-bottom: 40px;
-    animation: fadeInRight 0.6s ease;
-}
-
-.features {
-    list-style: none;
-}
-
-.features li {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 32px;
-    animation: fadeInRight 0.6s ease;
-    opacity: 0;
-}
-
-.features li:nth-child(1) { animation-delay: 0.2s; animation-fill-mode: forwards; }
-.features li:nth-child(2) { animation-delay: 0.3s; animation-fill-mode: forwards; }
-.features li:nth-child(3) { animation-delay: 0.4s; animation-fill-mode: forwards; }
-.features li:nth-child(4) { animation-delay: 0.5s; animation-fill-mode: forwards; }
-
-.features .icon {
-    font-size: 32px;
-    margin-right: 20px;
-    flex-shrink: 0;
-}
-
-.features h3 {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
-.features p {
-    font-size: 15px;
-    opacity: 0.9;
-    line-height: 1.5;
 }
 
 /* 애니메이션 */
@@ -323,9 +250,5 @@ body {
     
     .login-box h1 {
         font-size: 28px;
-    }
-    
-    .demo-buttons {
-        flex-direction: column;
     }
 }

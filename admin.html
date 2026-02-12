@@ -18,17 +18,12 @@
         
         <nav class="admin-menu">
             <div class="menu-section">
-                <h3>사용자 관리</h3>
                 <button class="menu-item active" data-menu="users">
                     <span>사용자 목록</span>
                 </button>
                 <button class="menu-item" data-menu="companies">
                     <span>회사 관리</span>
                 </button>
-            </div>
-            
-            <div class="menu-section">
-                <h3>데이터 관리</h3>
                 <button class="menu-item" data-menu="manual-entry">
                     <span>수기 등록</span>
                 </button>
@@ -41,15 +36,11 @@
                 <button class="menu-item" data-menu="stats">
                     <span>통계 현황</span>
                 </button>
-            </div>
-            
-            <div class="menu-section">
-                <h3>시스템</h3>
+                <button class="menu-item" data-menu="notices">
+                    <span>공지사항 관리</span>
+                </button>
                 <button class="menu-item" data-menu="settings">
                     <span>시스템 설정</span>
-                </button>
-                <button class="menu-item" data-menu="logs">
-                    <span>활동 로그</span>
                 </button>
             </div>
         </nav>
@@ -62,7 +53,7 @@
             <button class="btn-logout-admin" id="logoutBtn">로그아웃</button>
         </div>
         
-        <button class="btn-back-to-dashboard" onclick="location.href='dashboard.html'">
+        <button class="btn-back-to-dashboard" onclick="sessionStorage.setItem('adminViewDashboard','1'); location.href='dashboard.html';">
             ← 대시보드로 돌아가기
         </button>
     </aside>
@@ -76,10 +67,35 @@
         
         <!-- 사용자 관리 -->
         <div id="users-menu" class="menu-content active">
+            <div class="table-card table-card-admin-list">
+                <div class="table-header">
+                    <h3>등록된 관리자</h3>
+                    <div class="table-header-actions">
+                        <button type="button" class="btn-add btn-add-admin" id="addAdminBtn">+ 관리자 추가</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>번호</th>
+                                <th>이름</th>
+                                <th>이메일</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminsTable">
+                            <!-- 동적으로 생성됨 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
             <div class="table-card">
                 <div class="table-header">
                     <h3>등록된 사용자</h3>
-                    <button class="btn-add">+ 사용자 추가</button>
+                    <div class="table-header-actions">
+                        <button type="button" class="btn-add" id="addUserBtn">+ 사용자 추가</button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="data-table">
@@ -106,7 +122,7 @@
             <div class="table-card">
                 <div class="table-header">
                     <h3>등록된 회사</h3>
-                    <button class="btn-add">+ 회사 추가</button>
+                    <button type="button" class="btn-add" id="addCompanyBtn">+ 회사 추가</button>
                 </div>
                 <div class="table-responsive">
                     <table class="data-table">
@@ -121,6 +137,33 @@
                         </thead>
                         <tbody id="companiesTable">
                             <!-- 동적으로 생성됨 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 공지사항 관리 -->
+        <div id="notices-menu" class="menu-content">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>공지사항 목록</h3>
+                    <button type="button" class="btn-add" id="addNoticeBtn">+ 공지사항 등록</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>번호</th>
+                                <th>제목</th>
+                                <th>등록일</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="noticesTable">
+                            <tr>
+                                <td colspan="4" class="empty-message">등록된 공지사항이 없습니다.</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -184,7 +227,7 @@
                         
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="entryCategory">카테고리 <span class="required">*</span></label>
+                                <label for="entryCategory">매출종류 <span class="required">*</span></label>
                                 <select id="entryCategory" name="category" required>
                                     <option value="">선택하세요</option>
                                     <option value="제품 A">제품 A</option>
@@ -199,26 +242,6 @@
                             <div class="form-group">
                                 <label for="entryAmount">금액 <span class="required">*</span></label>
                                 <input type="number" id="entryAmount" name="amount" placeholder="금액을 입력하세요" min="0" step="1000" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="entryStatus">상태 <span class="required">*</span></label>
-                                <select id="entryStatus" name="status" required>
-                                    <option value="">선택하세요</option>
-                                    <option value="완료">완료</option>
-                                    <option value="진행중">진행중</option>
-                                    <option value="대기">대기</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="entryUser">대상 사용자 <span class="required">*</span></label>
-                                <select id="entryUser" name="user" required>
-                                    <option value="">선택하세요</option>
-                                    <!-- 동적으로 생성됨 -->
-                                </select>
                             </div>
                         </div>
                         
@@ -267,7 +290,7 @@
                         <h4>데이터 입력</h4>
                         <p>양식에 맞춰 매출 데이터를 입력하세요</p>
                         <div class="format-info">
-                            <strong>필수 항목:</strong> 날짜, 거래처, 카테고리, 금액, 상태
+                            <strong>필수 항목:</strong> 날짜, 거래처, 매출종류, 금액
                         </div>
                     </div>
                     
@@ -316,9 +339,9 @@
                 
                 <!-- 사용자 선택 -->
                 <div class="user-selection">
-                    <label for="targetUserSelect">대상 사용자 선택:</label>
+                    <label for="targetUserSelect">등록대상 회사:</label>
                     <select id="targetUserSelect" class="user-select">
-                        <option value="">사용자를 선택하세요</option>
+                        <option value="">회사를 선택하세요</option>
                         <!-- 동적으로 생성됨 -->
                     </select>
                 </div>
@@ -378,132 +401,14 @@
                 </div>
             </div>
         </div>
-        
-        <!-- 활동 로그 -->
-        <div id="logs-menu" class="menu-content">
-            <div class="logs-card">
-                <h3>시스템 활동 로그</h3>
-                <div class="logs-list" id="systemLogs">
-                    <!-- 동적으로 생성 -->
-                </div>
-            </div>
-        </div>
     </main>
-    
-    <!-- 우측 패널: 실시간 정보 -->
-    <aside class="admin-right-panel">
-        <!-- 시스템 상태 -->
-        <div class="status-card">
-            <h3>시스템 상태</h3>
-            <div class="status-list">
-                <div class="status-item">
-                    <span class="status-label">서버 상태</span>
-                    <span class="status-badge online">정상</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">데이터베이스</span>
-                    <span class="status-badge online">연결됨</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">마지막 백업</span>
-                    <span class="status-value">2시간 전</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">디스크 사용량</span>
-                    <span class="status-value">45%</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 빠른 통계 -->
-        <div class="quick-stats-card">
-            <h3>오늘의 통계</h3>
-            <div class="quick-stat-item">
-                <div>
-                    <div class="stat-label">활성 사용자</div>
-                    <div class="stat-number">2</div>
-                </div>
-            </div>
-            <div class="quick-stat-item">
-                <div>
-                    <div class="stat-label">오늘 업로드</div>
-                    <div class="stat-number">0건</div>
-                </div>
-            </div>
-            <div class="quick-stat-item">
-                <div>
-                    <div class="stat-label">총 데이터</div>
-                    <div class="stat-number">16건</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 최근 활동 -->
-        <div class="activity-card">
-            <h3>최근 활동</h3>
-            <div class="activity-list">
-                <div class="activity-item">
-                    <div class="activity-content">
-                        <div class="activity-text">관리자 로그인</div>
-                        <div class="activity-time">방금 전</div>
-                    </div>
-                </div>
-                <div class="activity-item">
-                    <div class="activity-content">
-                        <div class="activity-text">대시보드 조회</div>
-                        <div class="activity-time">5분 전</div>
-                    </div>
-                </div>
-                <div class="activity-item">
-                    <div class="activity-content">
-                        <div class="activity-text">자동 백업 완료</div>
-                        <div class="activity-time">2시간 전</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 알림 -->
-        <div class="notification-card">
-            <h3>알림</h3>
-            <div class="notification-list">
-                <div class="notification-item new">
-                    <div class="notification-badge">NEW</div>
-                    <div class="notification-content">
-                        <div class="notification-title">시스템 정기 점검 예정</div>
-                        <div class="notification-date">2026.02.15</div>
-                    </div>
-                </div>
-                <div class="notification-item">
-                    <div class="notification-content">
-                        <div class="notification-title">백업 완료</div>
-                        <div class="notification-date">오늘</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 빠른 작업 -->
-        <div class="quick-actions-card">
-            <h3>빠른 작업</h3>
-            <button class="quick-action-btn" onclick="document.querySelector('[data-menu=upload]').click()">
-                <span>데이터 업로드</span>
-            </button>
-            <button class="quick-action-btn" onclick="document.querySelector('[data-menu=backup]').click()">
-                <span>백업 시작</span>
-            </button>
-            <button class="quick-action-btn" onclick="document.querySelector('[data-menu=users]').click()">
-                <span>사용자 관리</span>
-            </button>
-        </div>
-    </aside>
     
     <!-- 사용자 수정 모달 -->
     <div id="editUserModal" class="modal" style="display: none;">
         <div class="modal-overlay" onclick="closeEditUserModal()"></div>
         <div class="modal-container">
             <div class="modal-header">
-                <h2>사용자 정보 수정</h2>
+                <h2 id="editUserModalTitle">사용자 정보 수정</h2>
                 <button class="modal-close" onclick="closeEditUserModal()">×</button>
             </div>
             
@@ -554,6 +459,129 @@
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeEditUserModal()">취소</button>
                 <button type="button" class="btn-primary" onclick="saveUserChanges()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 관리자 추가 모달 -->
+    <div id="addAdminModal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeAddAdminModal()"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>관리자 추가</h2>
+                <button type="button" class="modal-close" onclick="closeAddAdminModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="addAdminForm">
+                    <div class="form-group">
+                        <label>이름 <span class="required">*</span></label>
+                        <input type="text" id="newAdminName" placeholder="관리자 이름" required>
+                    </div>
+                    <div class="form-group">
+                        <label>이메일 <span class="required">*</span></label>
+                        <input type="email" id="newAdminEmail" placeholder="admin2@company.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>비밀번호 <span class="required">*</span></label>
+                        <input type="password" id="newAdminPassword" placeholder="8자 이상" required minlength="8">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeAddAdminModal()">취소</button>
+                <button type="button" class="btn-primary" onclick="saveNewAdmin()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 관리자 수정 모달 -->
+    <div id="editAdminModal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeEditAdminModal()"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>관리자 수정</h2>
+                <button type="button" class="modal-close" onclick="closeEditAdminModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editAdminForm">
+                    <input type="hidden" id="editAdminEmail">
+                    <div class="form-group">
+                        <label>이름 <span class="required">*</span></label>
+                        <input type="text" id="editAdminName" placeholder="관리자 이름" required>
+                    </div>
+                    <div class="form-group">
+                        <label>이메일</label>
+                        <input type="text" id="editAdminEmailDisplay" readonly class="readonly-input">
+                    </div>
+                    <div class="form-group">
+                        <label>비밀번호 변경</label>
+                        <input type="password" id="editAdminPassword" placeholder="변경 시에만 입력 (8자 이상)">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeEditAdminModal()">취소</button>
+                <button type="button" class="btn-primary" onclick="saveEditAdmin()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 공지사항 등록/수정 모달 -->
+    <div id="noticeModal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeNoticeModal()"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 id="noticeModalTitle">공지사항 등록</h2>
+                <button type="button" class="modal-close" onclick="closeNoticeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="noticeForm">
+                    <input type="hidden" id="noticeId">
+                    <div class="form-group">
+                        <label>제목 <span class="required">*</span></label>
+                        <input type="text" id="noticeTitle" placeholder="공지사항 제목을 입력하세요" required>
+                    </div>
+                    <div class="form-group">
+                        <label>내용</label>
+                        <textarea id="noticeContent" rows="4" placeholder="내용을 입력하세요"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>등록일</label>
+                        <input type="date" id="noticeDate">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeNoticeModal()">취소</button>
+                <button type="button" class="btn-primary" onclick="saveNotice()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 회사 추가/수정 모달 -->
+    <div id="editCompanyModal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeEditCompanyModal()"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 id="editCompanyModalTitle">회사 정보 수정</h2>
+                <button class="modal-close" onclick="closeEditCompanyModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editCompanyForm">
+                    <input type="hidden" id="editCompanyIndex">
+                    <div class="form-group">
+                        <label>회사명 <span class="required">*</span></label>
+                        <input type="text" id="editCompanyName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>사업자등록번호 <span class="required">*</span></label>
+                        <input type="text" id="editCompanyNumber" placeholder="000-00-00000" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeEditCompanyModal()">취소</button>
+                <button type="button" class="btn-primary" onclick="saveCompanyEdit()">저장</button>
             </div>
         </div>
     </div>

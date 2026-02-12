@@ -23,7 +23,7 @@
 .admin-body {
     background: #F3F4F6;
     display: grid;
-    grid-template-columns: 280px 1fr 350px;
+    grid-template-columns: 280px 1fr;
     height: 100vh;
     overflow: hidden;
     gap: 0;
@@ -52,29 +52,29 @@
 /* 관리자 메뉴 */
 .admin-menu {
     flex: 1;
-    padding: 20px 0;
+    padding: 12px 0;
     overflow-y: auto;
 }
 
 .menu-section {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
 }
 
 .menu-section h3 {
-    padding: 0 20px;
+    padding: 0 16px;
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .menu-item {
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 12px 20px;
+    padding: 8px 16px;
     background: transparent;
     border: none;
     border-left: 3px solid transparent;
@@ -571,6 +571,12 @@ input:checked + .slider:before {
     color: var(--text-primary);
 }
 
+.table-header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -579,6 +585,10 @@ input:checked + .slider:before {
 
 .table-responsive .data-table {
     min-width: 800px;
+}
+
+#users-menu .table-responsive .data-table {
+    min-width: 690px;
 }
 
 .data-table tbody {
@@ -627,6 +637,12 @@ input:checked + .slider:before {
 
 .data-table td:last-child button {
     margin: 0 2px;
+}
+
+.data-table td.empty-message {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 32px 16px;
 }
 
 /* 회사 드롭다운 스타일 */
@@ -725,58 +741,62 @@ input:checked + .slider:before {
 /* 테이블 열 너비 조정 - 사용자 테이블 */
 #users-menu .data-table th:nth-child(1),
 #users-menu .data-table td:nth-child(1) {
-    width: 60px;
+    width: 48px;
 }
 
 #users-menu .data-table th:nth-child(2),
 #users-menu .data-table td:nth-child(2) {
-    width: 100px;
+    width: 80px;
 }
 
 #users-menu .data-table th:nth-child(3),
 #users-menu .data-table td:nth-child(3) {
-    width: 220px;
+    width: 160px;
 }
 
 #users-menu .data-table th:nth-child(4),
 #users-menu .data-table td:nth-child(4) {
-    width: auto;
+    width: 160px;
+    padding-right: 8px;
 }
 
 #users-menu .data-table th:nth-child(5),
 #users-menu .data-table td:nth-child(5) {
-    width: 80px;
+    width: 64px;
+    padding-left: 8px;
 }
 
 #users-menu .data-table th:nth-child(6),
 #users-menu .data-table td:nth-child(6) {
-    width: 140px;
+    width: 180px;
 }
 
 /* 테이블 열 너비 조정 - 회사 테이블 */
 #companies-menu .data-table th:nth-child(1),
 #companies-menu .data-table td:nth-child(1) {
-    width: 60px;
+    width: 50px;
 }
 
 #companies-menu .data-table th:nth-child(2),
 #companies-menu .data-table td:nth-child(2) {
-    width: auto;
+    width: 160px;
+    padding-right: 8px;
 }
 
 #companies-menu .data-table th:nth-child(3),
 #companies-menu .data-table td:nth-child(3) {
-    width: 180px;
+    width: 130px;
+    padding-left: 8px;
 }
 
 #companies-menu .data-table th:nth-child(4),
 #companies-menu .data-table td:nth-child(4) {
-    width: 120px;
+    width: 90px;
 }
 
 #companies-menu .data-table th:nth-child(5),
 #companies-menu .data-table td:nth-child(5) {
-    width: 140px;
+    width: 120px;
 }
 
 .status-badge {
@@ -1024,6 +1044,7 @@ input:checked + .slider:before {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    white-space: nowrap;
 }
 
 .btn-secondary:hover {
@@ -1438,7 +1459,7 @@ input:checked + .slider:before {
 /* 반응형 */
 @media (max-width: 1600px) {
     .admin-body {
-        grid-template-columns: 260px 1fr 320px;
+        grid-template-columns: 260px 1fr;
     }
 }
 
@@ -1549,7 +1570,7 @@ input:checked + .slider:before {
 /* 넓은 화면 최적화 */
 @media (min-width: 1920px) {
     .admin-body {
-        grid-template-columns: 300px 1fr 380px;
+        grid-template-columns: 300px 1fr;
     }
 }
 

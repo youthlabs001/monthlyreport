@@ -12,6 +12,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'index.html';
         return;
     }
+    // 관리자 계정은 기본적으로 관리자 페이지로 이동 (단, '대시보드로 돌아가기'로 온 경우는 표시)
+    if (isAdminUser(currentUser.email) && !sessionStorage.getItem('adminViewDashboard')) {
+        window.location.href = 'admin.html';
+        return;
+    }
+    sessionStorage.removeItem('adminViewDashboard');
     
     // 사용자 데이터 로드
     const baseUserData = DEMO_USERS[currentUser.email];
@@ -27,7 +33,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // 초기화
     initDashboard();
     setupEventListeners();
+    
+    // 관리자 테스트 모드(사용자로 접속) 시 배너 표시
+    setupImpersonationBanner();
 });
+
+// 관리자가 사용자 계정으로 접속한 경우 배너 표시 및 복귀 버튼
+function setupImpersonationBanner() {
+    if (sessionStorage.getItem('adminImpersonating') !== '1') return;
+    const banner = document.getElementById('adminImpersonationBanner');
+    const nameEl = document.getElementById('impersonationUserName');
+    const backBtn = document.getElementById('backToAdminBtn');
+    if (!banner || !nameEl || !backBtn) return;
+    nameEl.textContent = currentUser.fullName || currentUser.email;
+    banner.style.display = 'flex';
+    backBtn.addEventListener('click', () => {
+        const backup = sessionStorage.getItem('adminUserBackup');
+        if (backup) {
+            try {
+                Storage.setUser(JSON.parse(backup));
+            } catch (e) {}
+        }
+        sessionStorage.removeItem('adminImpersonating');
+        sessionStorage.removeItem('adminUserBackup');
+        location.href = 'admin.html';
+    });
+}
 
 // 회사 선택 초기화
 function initCompanySelector(baseUserData) {
@@ -117,11 +148,43 @@ function initDashboard() {
     
     // 차트 생성
     createRevenueChart();
-    createWeeklyChart();
-    createGrowthChart();
     
-    // 거래 내역 테이블 업데이트
-    updateTransactionTable();
+    // 우측 공지사항 (관리자에서 등록한 목록)
+    updateDashboardNotices();
+}
+
+// 관리자에서 등록한 공지사항 표시
+function updateDashboardNotices() {
+    const container = document.getElementById('dashboardNoticeList');
+    if (!container) return;
+    let notices = [];
+    try {
+        const raw = localStorage.getItem('admin_notices');
+        if (raw) notices = JSON.parse(raw);
+    } catch (e) {}
+    if (notices.length === 0) {
+        container.innerHTML = '<div class="notice-empty">등록된 공지사항이 없습니다.</div>';
+        return;
+    }
+    const now = new Date();
+    const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    container.innerHTML = notices.slice(0, 10).map(notice => {
+        const dateStr = notice.date ? notice.date.slice(0, 10).replace(/-/g, '.') : '';
+        const isNew = notice.createdAt && new Date(notice.createdAt).getTime() > sevenDaysAgo;
+        return `
+            <div class="notice-item${isNew ? ' new' : ''}">
+                ${isNew ? '<div class="notice-badge">NEW</div>' : ''}
+                <div class="notice-title">${escapeHtml(notice.title)}</div>
+                <div class="notice-date">${dateStr}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // 사용자 정보 업데이트
@@ -297,140 +360,6 @@ function createRevenueChart() {
     });
 }
 
-// 주간 매출 추이 차트
-function createWeeklyChart() {
-    const ctx = document.getElementById('weeklyChart');
-    const data = userData.data;
-    
-    charts.weekly = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.weeklyData.map(item => item.day),
-            datasets: [{
-                label: '일별 매출',
-                data: data.weeklyData.map(item => item.revenue / 1000000),
-                backgroundColor: '#4F46E5',
-                borderRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return '매출: ₩' + (context.parsed.y * 1000000).toLocaleString('ko-KR');
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return '₩' + value + 'M';
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-// 분기별 성장률 차트
-function createGrowthChart() {
-    const ctx = document.getElementById('growthChart');
-    const data = userData.data;
-    
-    charts.growth = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.quarterlyGrowth.map(item => item.quarter),
-            datasets: [{
-                label: '성장률',
-                data: data.quarterlyGrowth.map(item => item.growth),
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return '성장률: ' + context.parsed.y + '%';
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-// 거래 내역 테이블 업데이트
-function updateTransactionTable() {
-    const tbody = document.getElementById('transactionTable');
-    const data = userData.data;
-    
-    // 기본 거래 데이터
-    let allTransactions = [...data.transactions];
-    
-    // 업로드된 데이터 가져오기
-    const storageKey = `transactions_${currentUser.email}`;
-    const uploadedData = localStorage.getItem(storageKey);
-    
-    if (uploadedData) {
-        try {
-            const uploadedTransactions = JSON.parse(uploadedData);
-            allTransactions = [...uploadedTransactions, ...allTransactions];
-        } catch (error) {
-            console.error('업로드 데이터 로드 오류:', error);
-        }
-    }
-    
-    // 날짜순 정렬 (최신순)
-    allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // 테이블 렌더링
-    tbody.innerHTML = allTransactions.map(transaction => `
-        <tr>
-            <td>${formatDate(transaction.date)}</td>
-            <td>${transaction.client}</td>
-            <td>${transaction.category}</td>
-            <td><strong>${formatCurrency(transaction.amount)}</strong></td>
-            <td>
-                <span class="status-badge ${transaction.status}">
-                    ${transaction.status === 'completed' ? '완료' : transaction.status === 'pending' ? '대기' : '취소'}
-                </span>
-            </td>
-        </tr>
-    `).join('');
-}
-
 // 이벤트 리스너 설정
 function setupEventListeners() {
     // 로그아웃 버튼
@@ -478,13 +407,6 @@ function setupEventListeners() {
         });
     }
     
-    // 전체보기 버튼
-    const viewAllBtn = document.querySelector('.btn-view-all');
-    if (viewAllBtn) {
-        viewAllBtn.addEventListener('click', () => {
-            showNotification('상세 거래 내역 페이지로 이동합니다.', 'info');
-        });
-    }
     
     // 공지사항 아이템 클릭
     const noticeItems = document.querySelectorAll('.notice-item');
@@ -565,9 +487,6 @@ function showRevenueDetailModal(monthData, index) {
     // 카테고리별 매출
     renderCategoryBreakdown(monthData.revenue);
     
-    // 주요 거래처
-    renderTopClients();
-    
     // 전월 비교 차트
     if (index > 0) {
         const prevMonthData = data.monthlyRevenue[index - 1];
@@ -612,41 +531,6 @@ function renderCategoryBreakdown(totalRevenue) {
             </div>
         `;
     }).join('');
-}
-
-// 주요 거래처 렌더링
-function renderTopClients() {
-    const container = document.getElementById('modalTopClients');
-    const transactions = userData.data.transactions;
-    
-    // 거래처별 매출 합계 계산
-    const clientMap = {};
-    transactions.forEach(t => {
-        if (!clientMap[t.client]) {
-            clientMap[t.client] = {
-                name: t.client,
-                category: t.category,
-                total: 0
-            };
-        }
-        clientMap[t.client].total += t.amount;
-    });
-    
-    // 상위 5개 추출
-    const topClients = Object.values(clientMap)
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
-    
-    container.innerHTML = topClients.map((client, index) => `
-        <div class="client-item" style="display: flex; align-items: center;">
-            <div class="client-rank">${index + 1}</div>
-            <div class="client-info">
-                <div class="client-name">${client.name}</div>
-                <div class="client-category">${client.category}</div>
-            </div>
-            <div class="client-amount">${formatCurrency(client.total)}</div>
-        </div>
-    `).join('');
 }
 
 // 전년 동월 비교 차트 렌더링
@@ -1002,33 +886,6 @@ function exportToPDF() {
                         </tr>
                         `;
                     }).join('')}
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- 최근 거래 내역 -->
-        <div style="margin-bottom: 20px;">
-            <h3 style="font-size: 18px; color: #1F2937; margin-bottom: 15px; border-left: 4px solid #4F46E5; padding-left: 12px;">최근 거래 내역</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background: #F9FAFB;">
-                        <th style="padding: 10px; border: 1px solid #E5E7EB; text-align: left; font-size: 13px;">날짜</th>
-                        <th style="padding: 10px; border: 1px solid #E5E7EB; text-align: left; font-size: 13px;">거래처</th>
-                        <th style="padding: 10px; border: 1px solid #E5E7EB; text-align: left; font-size: 13px;">카테고리</th>
-                        <th style="padding: 10px; border: 1px solid #E5E7EB; text-align: right; font-size: 13px;">금액</th>
-                        <th style="padding: 10px; border: 1px solid #E5E7EB; text-align: center; font-size: 13px;">상태</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${userData.data.transactions.map(t => `
-                        <tr>
-                            <td style="padding: 8px; border: 1px solid #E5E7EB; font-size: 12px;">${formatDate(t.date)}</td>
-                            <td style="padding: 8px; border: 1px solid #E5E7EB; font-size: 12px;">${t.client}</td>
-                            <td style="padding: 8px; border: 1px solid #E5E7EB; font-size: 12px;">${t.category}</td>
-                            <td style="padding: 8px; border: 1px solid #E5E7EB; text-align: right; font-weight: 600; font-size: 12px;">${formatCurrency(t.amount)}</td>
-                            <td style="padding: 8px; border: 1px solid #E5E7EB; text-align: center; font-size: 11px;">${t.status === 'completed' ? '✓ 완료' : t.status === 'pending' ? '⏳ 대기' : '✗ 취소'}</td>
-                        </tr>
-                    `).join('')}
                 </tbody>
             </table>
         </div>

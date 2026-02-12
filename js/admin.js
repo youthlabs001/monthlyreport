@@ -1,10 +1,14 @@
 // 관리자 페이지 기능
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 로그인 확인 (실제로는 관리자 권한 확인 필요)
+    // 로그인 및 관리자 권한 확인
     const currentUser = Storage.getUser();
     if (!currentUser) {
         window.location.href = 'index.html';
+        return;
+    }
+    if (!isAdminUser(currentUser.email)) {
+        window.location.href = 'dashboard.html';
         return;
     }
     
@@ -26,8 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 수기 등록 기능
     setupManualEntry();
     
-    // 사용자 테이블 초기화
+    // 사용자·관리자 테이블 초기화
     updateUsersTable();
+    updateAdminsTable();
     
     // 사용자 선택 드롭다운 초기화
     updateUserSelects();
@@ -37,6 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 통계 업데이트
     updateStats();
+    
+    // 공지사항 등록 버튼 및 테이블
+    setupNoticeButton();
+    updateNoticesTable();
 });
 
 // 사용자 정보 업데이트
@@ -62,8 +71,8 @@ function setupTabs() {
         'upload': { title: '매출 데이터 업로드', subtitle: '엑셀 파일을 통해 매출 데이터를 일괄 등록합니다' },
         'backup': { title: '백업/복원', subtitle: '데이터베이스 백업 및 복원 작업을 수행합니다' },
         'stats': { title: '통계 현황', subtitle: '전체 시스템 통계를 확인합니다' },
-        'settings': { title: '시스템 설정', subtitle: '시스템 환경 설정 및 권한 관리' },
-        'logs': { title: '활동 로그', subtitle: '시스템 활동 기록을 확인합니다' }
+        'notices': { title: '공지사항 관리', subtitle: '공지사항을 등록하고 관리합니다' },
+        'settings': { title: '시스템 설정', subtitle: '시스템 환경 설정 및 권한 관리' }
     };
     
     menuItems.forEach(item => {
@@ -80,6 +89,9 @@ function setupTabs() {
             if (content) {
                 content.classList.add('active');
             }
+            if (menuName === 'notices') {
+                updateNoticesTable();
+            }
             
             // 헤더 제목 업데이트
             const titleInfo = menuTitles[menuName];
@@ -87,14 +99,8 @@ function setupTabs() {
                 document.getElementById('contentTitle').textContent = titleInfo.title;
                 document.getElementById('contentSubtitle').textContent = titleInfo.subtitle;
             }
-            
-            // 활동 로그에 기록
-            addActivityLog(`"${titleInfo.title}" 메뉴 조회`);
         });
     });
-    
-    // 초기 활동 로그 생성
-    generateInitialLogs();
 }
 
 // 로그아웃 설정
@@ -110,15 +116,28 @@ function setupLogout() {
 // 버튼 이벤트 설정
 function setupButtons() {
     // 사용자 추가 버튼
-    const addUserBtns = document.querySelectorAll('.btn-add');
-    addUserBtns.forEach(btn => {
+    const addUserBtn = document.getElementById('addUserBtn');
+    if (addUserBtn) {
+        addUserBtn.addEventListener('click', openAddUserModal);
+    }
+    
+    // 관리자 추가 버튼
+    const addAdminBtn = document.getElementById('addAdminBtn');
+    if (addAdminBtn) {
+        addAdminBtn.addEventListener('click', openAddAdminModal);
+    }
+    
+    // 회사 추가 버튼
+    const addCompanyBtn = document.getElementById('addCompanyBtn');
+    if (addCompanyBtn) {
+        addCompanyBtn.addEventListener('click', openAddCompanyModal);
+    }
+    
+    // 기타 .btn-add (사용자/관리자/회사/공지 추가가 아닌 것)
+    document.querySelectorAll('.btn-add').forEach(btn => {
+        if (btn.id === 'addUserBtn' || btn.id === 'addAdminBtn' || btn.id === 'addCompanyBtn' || btn.id === 'addNoticeBtn') return;
         btn.addEventListener('click', () => {
-            const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
-            if (currentTab === 'users') {
-                showMessage('사용자 추가 기능은 준비 중입니다.', 'info');
-            } else if (currentTab === 'companies') {
-                showMessage('회사 추가 기능은 준비 중입니다.', 'info');
-            }
+            showMessage('기능 준비 중입니다.', 'info');
         });
     });
     
@@ -287,7 +306,7 @@ function setupExcelUpload() {
 function downloadExcelTemplate() {
     // 양식 데이터
     const templateData = [
-        ['날짜', '거래처', '카테고리', '금액', '상태', '비고'],
+        ['날짜', '거래처', '매출종류', '금액', '상태', '비고'],
         ['2026-02-01', '(주)샘플거래처', '제품 판매', '15000000', 'completed', ''],
         ['2026-02-02', '테스트기업', '서비스', '8500000', 'completed', ''],
         ['2026-02-03', '예시회사', '구독', '2500000', 'pending', '확인 필요'],
@@ -301,7 +320,7 @@ function downloadExcelTemplate() {
     ws['!cols'] = [
         { wch: 12 },  // 날짜
         { wch: 20 },  // 거래처
-        { wch: 15 },  // 카테고리
+        { wch: 15 },  // 매출종류
         { wch: 15 },  // 금액
         { wch: 12 },  // 상태
         { wch: 20 }   // 비고
@@ -452,7 +471,7 @@ function processExcelData(jsonData, targetUser) {
                 throw new Error('거래처가 없습니다');
             }
             if (!transaction.category) {
-                throw new Error('카테고리가 없습니다');
+                throw new Error('매출종류가 없습니다');
             }
             if (isNaN(transaction.amount) || transaction.amount <= 0) {
                 throw new Error('금액이 올바르지 않습니다');
@@ -520,65 +539,8 @@ function displayUploadResult(result) {
     resultDiv.style.display = 'block';
 }
 
-// 활동 로그 추가
-const activityLogs = [];
-
 function addActivityLog(message) {
-    const now = new Date();
-    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-    
-    activityLogs.unshift({
-        time: timeStr,
-        message: message,
-        timestamp: now.getTime()
-    });
-    
-    // 최대 10개까지만 유지
-    if (activityLogs.length > 10) {
-        activityLogs.pop();
-    }
-    
-    updateActivityDisplay();
-}
-
-function updateActivityDisplay() {
-    const activityList = document.querySelector('.admin-right-panel .activity-list');
-    if (!activityList) return;
-    
-    activityList.innerHTML = activityLogs.slice(0, 5).map((log, index) => `
-        <div class="activity-item">
-            <div class="activity-content">
-                <div class="activity-text">${log.message}</div>
-                <div class="activity-time">${log.time}</div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function generateInitialLogs() {
-    const now = new Date();
-    addActivityLog('관리자 페이지 접속');
-    
-    // 시스템 로그 생성
-    const logsContainer = document.getElementById('systemLogs');
-    if (logsContainer) {
-        const logs = [
-            { time: '14:30', text: '관리자(admin@company.com)가 로그인했습니다' },
-            { time: '14:25', text: '사용자 목록을 조회했습니다' },
-            { time: '12:00', text: '자동 백업이 완료되었습니다' },
-            { time: '10:15', text: '데이터 업로드가 완료되었습니다 (5건)' },
-            { time: '09:00', text: '시스템 점검이 시작되었습니다' },
-            { time: '08:45', text: 'demo1@company.com이 로그인했습니다' },
-            { time: '08:30', text: 'demo2@company.com이 로그인했습니다' },
-        ];
-        
-        logsContainer.innerHTML = logs.map(log => `
-            <div class="log-item">
-                <div class="log-time">${log.time}</div>
-                <div class="log-text">${log.text}</div>
-            </div>
-        `).join('');
-    }
+    // 활동 로그 기능 제거됨 (기존 호출부 호환용 no-op)
 }
 
 // 수기 등록 설정
@@ -596,22 +558,26 @@ function setupManualEntry() {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         
-        // 폼 데이터 수집
+        // 폼 데이터 수집 (상태·대상 사용자 제거, 기본값 사용)
+        const defaultUser = usersData.length > 0 ? usersData[0].email : '';
         const formData = {
             date: document.getElementById('entryDate').value,
             client: document.getElementById('entryClient').value.trim(),
             category: document.getElementById('entryCategory').value,
             amount: parseInt(document.getElementById('entryAmount').value),
-            status: document.getElementById('entryStatus').value,
-            user: document.getElementById('entryUser').value,
+            status: 'completed',
+            user: defaultUser,
             note: document.getElementById('entryNote').value.trim(),
             id: Date.now() // 고유 ID 생성
         };
         
         // 유효성 검사
-        if (!formData.date || !formData.client || !formData.category || 
-            !formData.amount || !formData.status || !formData.user) {
+        if (!formData.date || !formData.client || !formData.category || !formData.amount) {
             alert('필수 항목을 모두 입력해주세요.');
+            return;
+        }
+        if (!defaultUser) {
+            alert('등록된 사용자가 없습니다.');
             return;
         }
         
@@ -631,7 +597,8 @@ function setupManualEntry() {
         dateInput.value = today;
         
         // 활동 로그 추가
-        const userName = DEMO_USERS.find(u => u.email === formData.user)?.company || formData.user;
+        const targetUser = usersData.find(u => u.email === formData.user);
+        const userName = targetUser ? (targetUser.companies[0] || targetUser.email) : formData.user;
         addActivityLog(`${userName}에 매출 데이터 1건을 등록했습니다`);
     });
     
@@ -774,8 +741,100 @@ const availableCompanies = [
 // 현재 편집 중인 사용자
 let currentEditingUser = null;
 
+// 관리자 추가 모달 열기/닫기
+function openAddAdminModal() {
+    document.getElementById('newAdminName').value = '';
+    document.getElementById('newAdminEmail').value = '';
+    document.getElementById('newAdminPassword').value = '';
+    document.getElementById('addAdminModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAddAdminModal() {
+    document.getElementById('addAdminModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function saveNewAdmin() {
+    const name = document.getElementById('newAdminName').value.trim();
+    const email = document.getElementById('newAdminEmail').value.trim();
+    const password = document.getElementById('newAdminPassword').value;
+    if (!name || !email || !password) {
+        alert('이름, 이메일, 비밀번호를 모두 입력해주세요.');
+        return;
+    }
+    if (password.length < 8) {
+        alert('비밀번호는 8자 이상이어야 합니다.');
+        return;
+    }
+    if (typeof DEMO_USERS === 'undefined') {
+        alert('시스템 오류: DEMO_USERS를 사용할 수 없습니다.');
+        return;
+    }
+    if (DEMO_USERS[email]) {
+        alert('이미 등록된 이메일입니다.');
+        return;
+    }
+    const newAdmin = {
+        password: password,
+        fullName: name,
+        isAdmin: true,
+        companyName: '관리자',
+        data: {
+            currentMonthRevenue: 0,
+            lastMonthRevenue: 0,
+            monthlyRevenue: [],
+            lastYearRevenue: [],
+            categories: [],
+            weeklyData: [],
+            quarterlyGrowth: [],
+            transactions: []
+        }
+    };
+    DEMO_USERS[email] = newAdmin;
+    // 로그인 페이지에서도 인식하도록 localStorage에 저장
+    try {
+        const stored = localStorage.getItem('demo_users_additions') || '{}';
+        const additions = JSON.parse(stored);
+        additions[email] = newAdmin;
+        localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+    } catch (e) {
+        console.warn('추가 계정 저장 실패:', e);
+    }
+    closeAddAdminModal();
+    updateAdminsTable();
+    showMessage(`관리자 ${name}이(가) 추가되었습니다. 로그인 화면에서 해당 이메일로 로그인할 수 있습니다.`, 'success');
+    addActivityLog(`관리자 추가: ${name} (${email})`);
+}
+
+// 사용자 추가 모달 열기
+function openAddUserModal() {
+    const titleEl = document.getElementById('editUserModalTitle');
+    if (titleEl) titleEl.textContent = '사용자 추가';
+    document.getElementById('editUserId').value = '';
+    currentEditingUser = {
+        id: null,
+        name: '',
+        email: '',
+        companies: availableCompanies.length ? [availableCompanies[0].name] : [],
+        status: '활성'
+    };
+    document.getElementById('editUserName').value = '';
+    document.getElementById('editUserEmail').value = '';
+    document.getElementById('editUserEmail').removeAttribute('readonly');
+    document.getElementById('editUserStatus').value = '활성';
+    renderUserCompanies();
+    populateCompanySelect();
+    document.getElementById('addCompanySelect').style.display = 'none';
+    document.getElementById('editUserModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    addActivityLog('사용자 추가 모달을 열었습니다');
+}
+
 // 사용자 수정 모달 열기
 function openEditUserModal(email, userId) {
+    const titleEl = document.getElementById('editUserModalTitle');
+    if (titleEl) titleEl.textContent = '사용자 정보 수정';
     const user = usersData.find(u => u.email === email || u.id == userId);
     if (!user) {
         alert('사용자를 찾을 수 없습니다.');
@@ -788,6 +847,7 @@ function openEditUserModal(email, userId) {
     document.getElementById('editUserId').value = user.id;
     document.getElementById('editUserName').value = user.name;
     document.getElementById('editUserEmail').value = user.email;
+    document.getElementById('editUserEmail').setAttribute('readonly', 'readonly');
     document.getElementById('editUserStatus').value = user.status;
     
     // 회사 목록 표시
@@ -907,11 +967,10 @@ function removeCompanyFromUser(companyName) {
 function saveUserChanges() {
     if (!currentEditingUser) return;
     
-    // 폼 데이터 수집
     const name = document.getElementById('editUserName').value.trim();
+    const email = document.getElementById('editUserEmail').value.trim();
     const status = document.getElementById('editUserStatus').value;
     
-    // 유효성 검사
     if (!name) {
         alert('이름을 입력해주세요.');
         return;
@@ -922,7 +981,36 @@ function saveUserChanges() {
         return;
     }
     
-    // 데이터 업데이트
+    // 추가 모드
+    if (!currentEditingUser.id) {
+        if (!email) {
+            alert('이메일을 입력해주세요.');
+            return;
+        }
+        if (usersData.some(u => u.email === email)) {
+            alert('이미 등록된 이메일입니다.');
+            return;
+        }
+        const newId = usersData.length ? Math.max(...usersData.map(u => u.id)) + 1 : 1;
+        usersData.push({
+            id: newId,
+            name: name,
+            email: email,
+            companies: [...currentEditingUser.companies],
+            joinDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+            status: status
+        });
+        updateUsersTable();
+        updateUserSelects();
+        updateCompaniesTable();
+        updateStats();
+        showMessage(`${name} 사용자가 추가되었습니다.`, 'success');
+        addActivityLog(`사용자 추가: ${name} (${email})`);
+        closeEditUserModal();
+        return;
+    }
+    
+    // 수정 모드
     const userIndex = usersData.findIndex(u => u.id === currentEditingUser.id);
     if (userIndex !== -1) {
         usersData[userIndex] = {
@@ -931,19 +1019,12 @@ function saveUserChanges() {
             status: status,
             companies: [...currentEditingUser.companies]
         };
-        
-        // 테이블 및 드롭다운 업데이트
         updateUsersTable();
         updateUserSelects();
         updateCompaniesTable();
         updateStats();
-        
-        // 성공 메시지
         showMessage(`${name} 사용자 정보가 업데이트되었습니다.`, 'success');
-        
         addActivityLog(`${name} 사용자 정보를 수정했습니다`);
-        
-        // 모달 닫기
         closeEditUserModal();
     }
 }
@@ -966,12 +1047,215 @@ function updateCompaniesTable() {
                 <td>${company.number}</td>
                 <td>${userCount}명</td>
                 <td>
-                    <button class="btn-small btn-edit">수정</button>
-                    <button class="btn-small btn-view">상세</button>
+                    <button type="button" class="btn-small btn-edit" onclick="openEditCompanyModal(${index})">수정</button>
+                    <button type="button" class="btn-small btn-delete" onclick="deleteCompany(${index})">삭제</button>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+// 회사 삭제
+function deleteCompany(index) {
+    const company = availableCompanies[index];
+    if (!company) return;
+    const userCount = usersData.filter(user => user.companies.includes(company.name)).length;
+    const msg = userCount > 0
+        ? '"' + company.name + '" 회사를 삭제하시겠습니까?\n이 회사를 사용 중인 사용자 ' + userCount + '명의 회사 목록에서도 제거됩니다.'
+        : '"' + company.name + '" 회사를 삭제하시겠습니까?';
+    if (!confirm(msg)) return;
+    availableCompanies.splice(index, 1);
+    usersData.forEach(user => {
+        const i = user.companies.indexOf(company.name);
+        if (i !== -1) user.companies.splice(i, 1);
+    });
+    updateCompaniesTable();
+    updateUsersTable();
+    updateUserSelects();
+    updateStats();
+    showMessage('회사가 삭제되었습니다.', 'success');
+    addActivityLog('회사 삭제: ' + company.name);
+}
+
+// 회사 추가 모달 열기
+function openAddCompanyModal() {
+    const titleEl = document.getElementById('editCompanyModalTitle');
+    if (titleEl) titleEl.textContent = '회사 추가';
+    document.getElementById('editCompanyIndex').value = '-1';
+    document.getElementById('editCompanyName').value = '';
+    document.getElementById('editCompanyNumber').value = '';
+    document.getElementById('editCompanyModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+// 회사 수정 모달 열기
+function openEditCompanyModal(index) {
+    const company = availableCompanies[index];
+    if (!company) return;
+    const titleEl = document.getElementById('editCompanyModalTitle');
+    if (titleEl) titleEl.textContent = '회사 정보 수정';
+    document.getElementById('editCompanyIndex').value = index;
+    document.getElementById('editCompanyName').value = company.name;
+    document.getElementById('editCompanyNumber').value = company.number;
+    document.getElementById('editCompanyModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+// 회사 수정 모달 닫기
+function closeEditCompanyModal() {
+    document.getElementById('editCompanyModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// 회사 추가/수정 저장
+function saveCompanyEdit() {
+    const index = parseInt(document.getElementById('editCompanyIndex').value, 10);
+    const name = document.getElementById('editCompanyName').value.trim();
+    const number = document.getElementById('editCompanyNumber').value.trim();
+    if (!name || !number) {
+        alert('회사명과 사업자등록번호를 입력해주세요.');
+        return;
+    }
+    if (isNaN(index) || index < 0) {
+        // 추가 모드
+        if (availableCompanies.some(c => c.name === name)) {
+            alert('이미 등록된 회사명입니다.');
+            return;
+        }
+        availableCompanies.push({ name: name, number: number });
+        updateCompaniesTable();
+        updateUserSelects();
+        updateStats();
+        closeEditCompanyModal();
+        showMessage('회사가 추가되었습니다.', 'success');
+        addActivityLog('회사 추가: ' + name);
+        return;
+    }
+    // 수정 모드
+    const company = availableCompanies[index];
+    if (!company) return;
+    const oldName = company.name;
+    company.name = name;
+    company.number = number;
+    usersData.forEach(user => {
+        const i = user.companies.indexOf(oldName);
+        if (i !== -1) user.companies[i] = name;
+    });
+    updateCompaniesTable();
+    updateUsersTable();
+    updateUserSelects();
+    closeEditCompanyModal();
+    showMessage('회사 정보가 수정되었습니다.', 'success');
+    addActivityLog('회사 정보를 수정했습니다: ' + name);
+}
+
+// 공지사항 데이터 (localStorage)
+const NOTICES_STORAGE_KEY = 'admin_notices';
+
+function getNotices() {
+    try {
+        const raw = localStorage.getItem(NOTICES_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveNotices(notices) {
+    localStorage.setItem(NOTICES_STORAGE_KEY, JSON.stringify(notices));
+}
+
+function setupNoticeButton() {
+    const btn = document.getElementById('addNoticeBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => openNoticeModal());
+}
+
+function openNoticeModal(id) {
+    document.getElementById('noticeModalTitle').textContent = id ? '공지사항 수정' : '공지사항 등록';
+    document.getElementById('noticeId').value = id || '';
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('noticeDate').value = today;
+    if (id) {
+        const notices = getNotices();
+        const notice = notices.find(n => n.id === id);
+        if (notice) {
+            document.getElementById('noticeTitle').value = notice.title;
+            document.getElementById('noticeContent').value = notice.content || '';
+            document.getElementById('noticeDate').value = (notice.date || today).slice(0, 10);
+        }
+    } else {
+        document.getElementById('noticeTitle').value = '';
+        document.getElementById('noticeContent').value = '';
+        document.getElementById('noticeDate').value = today;
+    }
+    document.getElementById('noticeModal').style.display = 'flex';
+}
+
+function closeNoticeModal() {
+    document.getElementById('noticeModal').style.display = 'none';
+}
+
+function saveNotice() {
+    const id = document.getElementById('noticeId').value;
+    const title = document.getElementById('noticeTitle').value.trim();
+    const content = document.getElementById('noticeContent').value.trim();
+    const date = document.getElementById('noticeDate').value;
+    if (!title) {
+        alert('제목을 입력해주세요.');
+        return;
+    }
+    const notices = getNotices();
+    if (id) {
+        const idx = notices.findIndex(n => n.id === id);
+        if (idx !== -1) {
+            notices[idx] = { ...notices[idx], title, content, date };
+        }
+    } else {
+        notices.unshift({
+            id: 'n' + Date.now(),
+            title,
+            content,
+            date: date || new Date().toISOString().slice(0, 10),
+            createdAt: new Date().toISOString()
+        });
+    }
+    saveNotices(notices);
+    updateNoticesTable();
+    closeNoticeModal();
+    addActivityLog('공지사항을 저장했습니다.');
+}
+
+function updateNoticesTable() {
+    const tbody = document.getElementById('noticesTable');
+    if (!tbody) return;
+    const notices = getNotices();
+    if (notices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-message">등록된 공지사항이 없습니다.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = notices.map((n, i) => {
+        const dateStr = n.date ? n.date.slice(0, 10).replace(/-/g, '.') : '-';
+        return `
+            <tr>
+                <td>${notices.length - i}</td>
+                <td>${n.title}</td>
+                <td>${dateStr}</td>
+                <td>
+                    <button type="button" class="btn-small btn-edit" onclick="openNoticeModal('${n.id}')">수정</button>
+                    <button type="button" class="btn-small btn-view" onclick="deleteNotice('${n.id}')">삭제</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function deleteNotice(id) {
+    if (!confirm('이 공지사항을 삭제하시겠습니까?')) return;
+    const notices = getNotices().filter(n => n.id !== id);
+    saveNotices(notices);
+    updateNoticesTable();
+    addActivityLog('공지사항을 삭제했습니다.');
 }
 
 // 통계 업데이트
@@ -987,6 +1271,122 @@ function updateStats() {
     if (totalUsersEl) {
         totalUsersEl.textContent = usersData.length;
     }
+}
+
+// 관리자 목록 테이블 업데이트 (DEMO_USERS 중 isAdmin === true)
+function updateAdminsTable() {
+    const tbody = document.getElementById('adminsTable');
+    if (!tbody) return;
+    
+    const admins = typeof DEMO_USERS !== 'undefined'
+        ? Object.entries(DEMO_USERS).filter(function(entry) { return entry[1].isAdmin === true; })
+        : [];
+    
+    tbody.innerHTML = admins.map(function(entry, index) {
+        const email = entry[0];
+        const u = entry[1];
+        const name = (u && u.fullName) ? u.fullName : '-';
+        const safeEmail = String(email).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${name}</td>
+                <td>${email}</td>
+                <td>
+                    <button type="button" class="btn-small btn-edit" data-admin-email="${safeEmail}" onclick="openEditAdminModal(this.getAttribute('data-admin-email'))">수정</button>
+                    <button type="button" class="btn-small btn-delete" data-admin-email="${safeEmail}" onclick="deleteAdmin(this.getAttribute('data-admin-email'))">삭제</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 관리자 수정 모달 열기
+function openEditAdminModal(email) {
+    if (typeof DEMO_USERS === 'undefined' || !DEMO_USERS[email] || !DEMO_USERS[email].isAdmin) {
+        alert('관리자 정보를 찾을 수 없습니다.');
+        return;
+    }
+    document.getElementById('editAdminEmail').value = email;
+    document.getElementById('editAdminEmailDisplay').value = email;
+    document.getElementById('editAdminName').value = DEMO_USERS[email].fullName || '';
+    document.getElementById('editAdminPassword').value = '';
+    document.getElementById('editAdminModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditAdminModal() {
+    document.getElementById('editAdminModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// 관리자 수정 저장 (이름, 비밀번호 변경 시에만)
+function saveEditAdmin() {
+    const email = document.getElementById('editAdminEmail').value.trim();
+    const name = document.getElementById('editAdminName').value.trim();
+    const newPassword = document.getElementById('editAdminPassword').value;
+    if (!email || !DEMO_USERS[email] || !DEMO_USERS[email].isAdmin) {
+        alert('관리자 정보를 찾을 수 없습니다.');
+        return;
+    }
+    if (!name) {
+        alert('이름을 입력해주세요.');
+        return;
+    }
+    if (newPassword.length > 0 && newPassword.length < 8) {
+        alert('비밀번호는 8자 이상이어야 합니다.');
+        return;
+    }
+    var user = DEMO_USERS[email];
+    user.fullName = name;
+    if (newPassword.length >= 8) {
+        user.password = newPassword;
+    }
+    try {
+        var stored = localStorage.getItem('demo_users_additions') || '{}';
+        var additions = JSON.parse(stored);
+        additions[email] = user;
+        localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+    } catch (e) {
+        console.warn('관리자 수정 저장 실패:', e);
+    }
+    closeEditAdminModal();
+    updateAdminsTable();
+    showMessage('관리자 정보가 수정되었습니다.', 'success');
+    addActivityLog('관리자 수정: ' + name + ' (' + email + ')');
+}
+
+// 관리자 삭제 (추가 계정은 제거, 기본 계정은 삭제 목록에 넣어 로그인/목록에서 제외)
+function deleteAdmin(email) {
+    if (typeof DEMO_USERS === 'undefined' || !DEMO_USERS[email] || !DEMO_USERS[email].isAdmin) {
+        alert('관리자 정보를 찾을 수 없습니다.');
+        return;
+    }
+    var name = (DEMO_USERS[email].fullName || email);
+    if (!confirm('관리자 "' + name + '" 계정을 삭제하시겠습니까?\n삭제 후에는 해당 이메일로 로그인할 수 없습니다.')) {
+        return;
+    }
+    try {
+        var additionsRaw = localStorage.getItem('demo_users_additions') || '{}';
+        var additions = JSON.parse(additionsRaw);
+        if (additions[email]) {
+            delete additions[email];
+            localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+        } else {
+            var deletedRaw = localStorage.getItem('demo_users_deleted') || '[]';
+            var deleted = JSON.parse(deletedRaw);
+            if (deleted.indexOf(email) === -1) {
+                deleted.push(email);
+                localStorage.setItem('demo_users_deleted', JSON.stringify(deleted));
+            }
+        }
+        delete DEMO_USERS[email];
+    } catch (e) {
+        console.warn('관리자 삭제 저장 실패:', e);
+    }
+    updateAdminsTable();
+    showMessage('관리자가 삭제되었습니다.', 'success');
+    addActivityLog('관리자 삭제: ' + name + ' (' + email + ')');
 }
 
 // 사용자 테이블 업데이트
@@ -1024,12 +1424,37 @@ function updateUsersTable() {
                 <td>${companiesHtml}</td>
                 <td><span class="status-badge completed">${user.status}</span></td>
                 <td>
+                    <button type="button" class="btn-small btn-view" onclick="viewAsUser('${user.email}')" title="해당 사용자 화면으로 접속하여 등록 데이터를 확인합니다">사용자 화면</button>
                     <button class="btn-small btn-edit" onclick="openEditUserModal('${user.email}', ${user.id})">수정</button>
                     <button class="btn-small btn-delete">삭제</button>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+// 사용자 계정으로 대시보드 접속 (테스트용)
+function viewAsUser(email) {
+    const user = usersData.find(u => u.email === email);
+    if (!user) {
+        alert('사용자 정보를 찾을 수 없습니다.');
+        return;
+    }
+    const companyName = user.companies && user.companies.length > 0 ? user.companies[0] : '';
+    const currentAdmin = Storage.getUser();
+    if (!currentAdmin || !isAdminUser(currentAdmin.email)) {
+        alert('관리자만 사용할 수 있는 기능입니다.');
+        return;
+    }
+    sessionStorage.setItem('adminUserBackup', JSON.stringify(currentAdmin));
+    sessionStorage.setItem('adminImpersonating', '1');
+    Storage.setUser({
+        email: user.email,
+        companyName: companyName,
+        fullName: user.name,
+        remember: false
+    });
+    location.href = 'dashboard.html';
 }
 
 // 회사 드롭다운 토글
@@ -1068,21 +1493,14 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// 사용자 선택 드롭다운 업데이트
+// 사용자 선택 드롭다운 업데이트 (엑셀 업로드용 대상 사용자만)
 function updateUserSelects() {
-    const entryUserSelect = document.getElementById('entryUser');
     const targetUserSelect = document.getElementById('targetUserSelect');
+    if (!targetUserSelect) return;
     
     const options = usersData.map(user => {
         const companyText = user.companies.length > 0 ? user.companies[0] : '회사 없음';
         return `<option value="${user.email}">${user.name} - ${companyText} (${user.email})</option>`;
     }).join('');
-    
-    if (entryUserSelect) {
-        entryUserSelect.innerHTML = '<option value="">선택하세요</option>' + options;
-    }
-    
-    if (targetUserSelect) {
-        targetUserSelect.innerHTML = '<option value="">사용자를 선택하세요</option>' + options;
-    }
+    targetUserSelect.innerHTML = '<option value="">회사를 선택하세요</option>' + options;
 }
