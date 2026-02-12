@@ -1389,6 +1389,26 @@ function deleteAdmin(email) {
     addActivityLog('관리자 삭제: ' + name + ' (' + email + ')');
 }
 
+// 사용자 삭제
+function deleteUser(email) {
+    const user = usersData.find(u => u.email === email);
+    if (!user) {
+        alert('사용자를 찾을 수 없습니다.');
+        return;
+    }
+    if (!confirm('사용자 "' + user.name + '" (' + email + ')을(를) 삭제하시겠습니까?')) {
+        return;
+    }
+    const index = usersData.findIndex(u => u.email === email);
+    if (index !== -1) {
+        usersData.splice(index, 1);
+    }
+    updateUsersTable();
+    updateUserSelects();
+    updateStats();
+    showMessage('사용자가 삭제되었습니다.', 'success');
+}
+
 // 사용자 테이블 업데이트
 function updateUsersTable() {
     const tbody = document.getElementById('usersTable');
@@ -1425,8 +1445,8 @@ function updateUsersTable() {
                 <td><span class="status-badge completed">${user.status}</span></td>
                 <td>
                     <button type="button" class="btn-small btn-view" onclick="viewAsUser('${user.email}')" title="해당 사용자 화면으로 접속하여 등록 데이터를 확인합니다">사용자 화면</button>
-                    <button class="btn-small btn-edit" onclick="openEditUserModal('${user.email}', ${user.id})">수정</button>
-                    <button class="btn-small btn-delete">삭제</button>
+                    <button type="button" class="btn-small btn-edit" onclick="openEditUserModal('${user.email}', ${user.id})">수정</button>
+                    <button type="button" class="btn-small btn-delete" data-user-email="${String(user.email).replace(/"/g, '&quot;').replace(/</g, '&lt;')}" onclick="deleteUser(this.getAttribute('data-user-email'))">삭제</button>
                 </td>
             </tr>
         `;
