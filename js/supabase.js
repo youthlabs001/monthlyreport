@@ -7,6 +7,14 @@ if (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && typeof SUPABASE_ANON_
         var lib = typeof window !== 'undefined' && window.supabase;
         if (lib && typeof lib.createClient === 'function') {
             supabase = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            // 연동 확인: auth.getSession()으로 프로젝트 연결 테스트
+            if (supabase && supabase.auth) {
+                supabase.auth.getSession().then(function() {
+                    console.log('[Supabase] 연동 확인됨 (프로젝트: ' + (SUPABASE_URL || '').replace('https://', '').replace('.supabase.co', '') + ')');
+                }).catch(function(e) {
+                    console.warn('[Supabase] 연동 확인 실패:', e && e.message ? e.message : e);
+                });
+            }
         }
     } catch (e) {
         console.warn('Supabase 클라이언트 초기화 실패:', e);

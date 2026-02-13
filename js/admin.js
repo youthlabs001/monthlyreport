@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 공지사항 등록 버튼 및 테이블
     setupNoticeButton();
     updateNoticesTable();
+    
+    // Supabase 연동: 로그인 세션이 있으면 DB에서 회사/사용자 로드 후 UI 갱신
+    loadAdminDataFromSupabase();
 });
 
 // 사용자 정보 업데이트
@@ -710,33 +713,171 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// 사용자 및 회사 데이터 (실제로는 서버에서 관리)
-let usersData = [
-    {
-        id: 1,
-        name: '김철수',
-        email: 'demo1@company.com',
-        companies: ['테크노바 주식회사', '글로벌테크 주식회사'],
-        joinDate: '2025.12.01',
-        status: '활성'
-    },
-    {
-        id: 2,
-        name: '이영희',
-        email: 'demo2@company.com',
-        companies: ['미래산업 코퍼레이션'],
-        joinDate: '2025.12.15',
-        status: '활성'
-    }
-];
+// 사용자 및 회사 데이터 (localStorage에 저장·로드하여 새로고침 후에도 유지)
+var ADMIN_USERS_STORAGE_KEY = 'admin_users_data';
+var ADMIN_COMPANIES_STORAGE_KEY = 'admin_companies_data';
 
-const availableCompanies = [
+var DEFAULT_USERS_DATA = [
+    { id: 1, name: '김철수', email: 'demo1@company.com', companies: ['테크노바 주식회사', '글로벌테크 주식회사'], joinDate: '2025.12.01', status: '활성' },
+    { id: 2, name: '이영희', email: 'demo2@company.com', companies: ['미래산업 코퍼레이션'], joinDate: '2025.12.15', status: '활성' }
+];
+var DEFAULT_COMPANIES_DATA = [
     { name: '테크노바 주식회사', number: '123-45-67890' },
     { name: '미래산업 코퍼레이션', number: '987-65-43210' },
     { name: '글로벌테크 주식회사', number: '345-67-89012' },
     { name: '혁신솔루션즈', number: '456-78-90123' },
     { name: '디지털플러스', number: '567-89-01234' }
 ];
+
+function loadUsersData() {
+    try {
+        var raw = localStorage.getItem(ADMIN_USERS_STORAGE_KEY);
+        if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+    } catch (e) { }
+    return JSON.parse(JSON.stringify(DEFAULT_USERS_DATA));
+}
+function loadCompaniesData() {
+    try {
+        var raw = localStorage.getItem(ADMIN_COMPANIES_STORAGE_KEY);
+        if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+    } catch (e) { }
+    return JSON.parse(JSON.stringify(DEFAULT_COMPANIES_DATA));
+}
+function saveUsersData() {
+    try {
+        localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(usersData));
+        syncUsersToSupabase();
+    } catch (e) {
+        console.warn('사용자 데이터 저장 실패:', e);
+    }
+}
+function saveCompaniesData() {
+    try {
+        localStorage.setItem(ADMIN_COMPANIES_STORAGE_KEY, JSON.stringify(availableCompanies));
+        syncCompaniesToSupabase();
+    } catch (e) {
+        console.warn('회사 데이터 저장 실패:', e);
+    }
+}
+
+// Supabase에서 회사/사용자 로드 (세션 있을 때만, public.companies / public.app_users)
+function loadAdminDataFromSupabase() {
+    if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
+    supabase.auth.getSession().then(function(sessionRes) {
+        if (!sessionRes.data || !sessionRes.data.session) return;
+        var session = sessionRes.data.session;
+        supabase.from('companies').select('id,name,number').then(function(r) {
+            if (r.data && r.data.length > 0) {
+                availableCompanies.length = 0;
+                r.data.forEach(function(c) {
+                    availableCompanies.push({ name: c.name, number: c.number });
+                });
+                try {
+                    localStorage.setItem(ADMIN_COMPANIES_STORAGE_KEY, JSON.stringify(availableCompanies));
+                } catch (e) {}
+                updateCompaniesTable();
+                updateUserSelects();
+                updateStats();
+            }
+        }).catch(function(e) {
+            console.warn('[Supabase] companies 로드 실패 (테이블 없을 수 있음):', e && e.message);
+        });
+        supabase.from('app_users').select('id,name,email,companies,join_date,status').then(function(r) {
+            if (r.data && r.data.length > 0) {
+                usersData.length = 0;
+                r.data.forEach(function(u) {
+                    usersData.push({
+                        id: u.id,
+                        name: u.name,
+                        email: u.email,
+                        companies: Array.isArray(u.companies) ? u.companies : (u.companies ? JSON.parse(u.companies) : []),
+                        joinDate: u.join_date || '',
+                        status: u.status || '활성'
+                    });
+                });
+                try {
+                    localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(usersData));
+                } catch (e) {}
+                updateUsersTable();
+                updateUserSelects();
+                updateStats();
+            }
+        }).catch(function(e) {
+            console.warn('[Supabase] app_users 로드 실패 (테이블 없을 수 있음):', e && e.message);
+        });
+    });
+}
+
+function syncCompaniesToSupabase() {
+    if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
+    supabase.auth.getSession().then(function(sessionRes) {
+        if (!sessionRes.data || !sessionRes.data.session) return;
+        supabase.from('companies').select('id').then(function(r) {
+            var ids = (r.data || []).map(function(x) { return x.id; });
+            if (ids.length === 0) {
+                if (availableCompanies.length === 0) return;
+                var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
+                supabase.from('companies').insert(rows).then(function() {}).catch(function(e) {
+                    console.warn('[Supabase] companies 저장 실패:', e && e.message);
+                });
+                return;
+            }
+            supabase.from('companies').delete().in('id', ids).then(function() {
+                if (availableCompanies.length === 0) return;
+                var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
+                supabase.from('companies').insert(rows).then(function() {}).catch(function(e) {
+                    console.warn('[Supabase] companies 저장 실패:', e && e.message);
+                });
+            }).catch(function(e) {
+                console.warn('[Supabase] companies 삭제 실패:', e && e.message);
+            });
+        }).catch(function(e) {
+            console.warn('[Supabase] companies id 조회 실패:', e && e.message);
+        });
+    });
+}
+
+function syncUsersToSupabase() {
+    if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
+    supabase.auth.getSession().then(function(sessionRes) {
+        if (!sessionRes.data || !sessionRes.data.session) return;
+        supabase.from('app_users').select('id').then(function(r) {
+            var ids = (r.data || []).map(function(x) { return x.id; });
+            if (ids.length === 0) {
+                if (usersData.length === 0) return;
+                var rows = usersData.map(function(u) {
+                    return { name: u.name, email: u.email, companies: u.companies || [], join_date: u.joinDate || '', status: u.status || '활성' };
+                });
+                supabase.from('app_users').insert(rows).then(function() {}).catch(function(e) {
+                    console.warn('[Supabase] app_users 저장 실패:', e && e.message);
+                });
+                return;
+            }
+            supabase.from('app_users').delete().in('id', ids).then(function() {
+                if (usersData.length === 0) return;
+                var rows = usersData.map(function(u) {
+                    return { name: u.name, email: u.email, companies: u.companies || [], join_date: u.joinDate || '', status: u.status || '활성' };
+                });
+                supabase.from('app_users').insert(rows).then(function() {}).catch(function(e) {
+                    console.warn('[Supabase] app_users 저장 실패:', e && e.message);
+                });
+            }).catch(function(e) {
+                console.warn('[Supabase] app_users 삭제 실패:', e && e.message);
+            });
+        }).catch(function(e) {
+            console.warn('[Supabase] app_users id 조회 실패:', e && e.message);
+        });
+    });
+}
+
+var usersData = loadUsersData();
+var availableCompanies = loadCompaniesData();
 
 // 현재 편집 중인 사용자
 let currentEditingUser = null;
@@ -1000,6 +1141,7 @@ function saveUserChanges() {
             joinDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
             status: status
         });
+        saveUsersData();
         updateUsersTable();
         updateUserSelects();
         updateCompaniesTable();
@@ -1019,6 +1161,7 @@ function saveUserChanges() {
             status: status,
             companies: [...currentEditingUser.companies]
         };
+        saveUsersData();
         updateUsersTable();
         updateUserSelects();
         updateCompaniesTable();
@@ -1069,6 +1212,8 @@ function deleteCompany(index) {
         const i = user.companies.indexOf(company.name);
         if (i !== -1) user.companies.splice(i, 1);
     });
+    saveUsersData();
+    saveCompaniesData();
     updateCompaniesTable();
     updateUsersTable();
     updateUserSelects();
@@ -1123,6 +1268,7 @@ function saveCompanyEdit() {
             return;
         }
         availableCompanies.push({ name: name, number: number });
+        saveCompaniesData();
         updateCompaniesTable();
         updateUserSelects();
         updateStats();
@@ -1141,6 +1287,8 @@ function saveCompanyEdit() {
         const i = user.companies.indexOf(oldName);
         if (i !== -1) user.companies[i] = name;
     });
+    saveUsersData();
+    saveCompaniesData();
     updateCompaniesTable();
     updateUsersTable();
     updateUserSelects();
@@ -1403,6 +1551,7 @@ function deleteUser(email) {
     if (index !== -1) {
         usersData.splice(index, 1);
     }
+    saveUsersData();
     updateUsersTable();
     updateUserSelects();
     updateStats();

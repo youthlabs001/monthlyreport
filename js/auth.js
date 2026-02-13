@@ -11,38 +11,62 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
-    // 로그인 폼 제출
-    loginForm.addEventListener('submit', (e) => {
+    // 로그인 폼 제출 (Supabase Auth 우선 시도 후 데모 계정 폴백)
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const email = document.getElementById('email').value;
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const remember = document.getElementById('remember').checked;
         
-        // 데모 계정 확인
-        if (DEMO_USERS[email]) {
-            const user = DEMO_USERS[email];
-            
+        // 1) Supabase 연동 시 Supabase Auth 먼저 시도
+        if (typeof supabase !== 'undefined' && supabase && supabase.auth) {
+            try {
+                var res = await supabase.auth.signInWithPassword({ email: email, password: password });
+                if (res.data && res.data.user) {
+                    var u = res.data.user;
+                    var meta = u.user_metadata || {};
+                    Storage.setUser({
+                        email: u.email,
+                        companyName: meta.company_name || meta.companyName || '',
+                        fullName: meta.full_name || meta.fullName || u.email,
+                        remember: remember
+                    });
+                    showMessage('로그인 성공!', 'success');
+                    var isAdmin = meta.is_admin === true || meta.isAdmin === true;
+                    setTimeout(function() {
+                        window.location.href = isAdmin ? 'admin.html' : 'dashboard.html';
+                    }, 500);
+                    return;
+                }
+                if (res.error) {
+                    // Supabase에서 실패 시 아래 데모 계정으로 폴백
+                }
+            } catch (err) {
+                console.warn('Supabase 로그인 시도 실패:', err);
+            }
+        }
+        
+        // 2) 데모 계정 확인 (로컬 DEMO_USERS)
+        if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
+            var user = DEMO_USERS[email];
             if (user.password === password) {
-                // 로그인 성공
                 Storage.setUser({
                     email: email,
-                    companyName: user.companyName,
-                    fullName: user.fullName,
+                    companyName: user.companyName || '',
+                    fullName: user.fullName || email,
                     remember: remember
                 });
-                
-                // 성공 메시지와 함께 권한에 따라 이동 (관리자 → admin.html, 일반 → dashboard.html)
                 showMessage('로그인 성공!', 'success');
-                setTimeout(() => {
-                    window.location.href = isAdminUser(email) ? 'admin.html' : 'dashboard.html';
+                setTimeout(function() {
+                    window.location.href = (typeof isAdminUser === 'function' && isAdminUser(email)) ? 'admin.html' : 'dashboard.html';
                 }, 500);
-            } else {
-                showMessage('비밀번호가 올바르지 않습니다.', 'error');
+                return;
             }
-        } else {
-            showMessage('등록되지 않은 이메일입니다.', 'error');
+            showMessage('비밀번호가 올바르지 않습니다.', 'error');
+            return;
         }
+        showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
     });
     
     // 데모 계정 버튼 클릭
