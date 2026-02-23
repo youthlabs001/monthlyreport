@@ -740,8 +740,21 @@ async function fetchGoogleSheetsData() {
         if (sheetId && sheetId[1]) {
             csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId[1]}/export?format=csv`;
         }
-    } else if (!url.includes('export?format=csv')) {
-        showMessage('올바른 Google Sheets URL이 아닙니다.', 'error');
+    } else if (url.includes('/pubhtml')) {
+        // https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml → CSV
+        csvUrl = url.replace('/pubhtml', '/pub?output=csv');
+    } else if (url.includes('/d/e/2PACX-')) {
+        // 웹에 게시된 URL 형식 처리
+        if (!url.includes('output=csv') && !url.includes('export?format=csv')) {
+            // pubhtml이 없으면 끝에 추가
+            csvUrl = url.split('?')[0].split('#')[0];
+            if (csvUrl.endsWith('/')) {
+                csvUrl = csvUrl.slice(0, -1);
+            }
+            csvUrl += '/pub?output=csv';
+        }
+    } else if (!url.includes('export?format=csv') && !url.includes('output=csv')) {
+        showMessage('올바른 Google Sheets URL이 아닙니다. "웹에 게시" 또는 "공유 링크"를 사용하세요.', 'error');
         return;
     }
     
