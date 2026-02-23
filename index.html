@@ -35,7 +35,14 @@
         </div>
     </div>
     
-    <script src="js/supabase-config.js"></script>
+    <script>
+        // Supabase 설정 (최우선 로드)
+        window.SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
+        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+        var SUPABASE_URL = window.SUPABASE_URL;
+        var SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+        console.log('[HTML] Supabase 설정 완료:', SUPABASE_URL);
+    </script>
     <script src="js/config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase.js"></script>
