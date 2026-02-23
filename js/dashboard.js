@@ -568,18 +568,19 @@ function createRevenueChart(monthlyData, currentYear, lastYear) {
                     
                     console.log('[차트 클릭] 데이터셋:', datasetIndex, '월:', monthIndex + 1);
                     
-                    // 2026년 데이터 클릭 시만 상세 보기
-                    if (datasetIndex === 0) {
-                        const year = currentYear;
-                        const month = monthIndex + 1;
-                        const key = `${year}-${month}`;
-                        const revenue = monthlyData[key] || 0;
-                        
-                        console.log('[차트 클릭] 상세 보기:', year, '년', month, '월, 매출:', revenue);
-                        
+                    // datasetIndex: 0 = 2026년, 1 = 2025년
+                    const year = datasetIndex === 0 ? currentYear : lastYear;
+                    const month = monthIndex + 1;
+                    const key = `${year}-${month}`;
+                    const revenue = monthlyData[key] || 0;
+                    
+                    console.log('[차트 클릭] 상세 보기:', year, '년', month, '월, 매출:', revenue);
+                    
+                    // 매출이 0원이 아닐 때만 모달 표시
+                    if (revenue > 0) {
                         showRevenueDetailModal(year, month, revenue);
                     } else {
-                        showNotification('2026년 데이터의 점을 클릭하면 상세 내역을 볼 수 있습니다.', 'info');
+                        showNotification(`${year}년 ${month}월 데이터가 없습니다.`, 'info');
                     }
                 }
             }
