@@ -271,3 +271,4 @@ Supabase 대시보드 **SQL Editor**에서 `database/supabase_schema.sql` 내용
 
 **제작일**: 2026년 2월 9일  
 **버전**: 1.0.0
+
