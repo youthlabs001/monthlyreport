@@ -120,14 +120,20 @@ function loadCompanyData() {
 function loadTransactionsFromSupabase() {
     if (typeof supabase === 'undefined' || !supabase) {
         console.log('[Supabase] 연결 안 됨, localStorage만 사용');
+        updateStatCards();
+        updateCharts();
         return;
     }
+    
+    console.log(`[Supabase] ${currentCompany} 데이터 조회 중...`);
     
     supabase.from('transactions')
         .select('*')
         .eq('user_email', currentUser.email)
         .eq('company_name', currentCompany)
         .then(function(result) {
+            console.log(`[Supabase] 조회 결과:`, result);
+            
             if (result.data && result.data.length > 0) {
                 console.log(`[Supabase] ${currentCompany}의 거래 데이터 ${result.data.length}건 로드됨`);
                 
@@ -145,16 +151,79 @@ function loadTransactionsFromSupabase() {
                 });
                 localStorage.setItem(storageKey, JSON.stringify(transactions));
                 
-                // 차트 및 통계 업데이트
-                updateStatCards();
-                updateCharts();
+                console.log(`[localStorage] ${storageKey}에 ${transactions.length}건 캐시됨`);
+                
+                // 월별 데이터 집계 및 차트 업데이트
+                aggregateAndUpdateCharts(transactions);
             } else {
                 console.log(`[Supabase] ${currentCompany}의 거래 데이터 없음`);
+                // Supabase에 데이터 없으면 기본 차트 표시
+                updateStatCards();
+                updateCharts();
             }
         })
         .catch(function(err) {
             console.error('[Supabase] 거래 데이터 로드 실패:', err);
+            // 에러 시 기본 차트 표시
+            updateStatCards();
+            updateCharts();
         });
+}
+
+// 거래 데이터를 월별로 집계하여 차트 업데이트
+function aggregateAndUpdateCharts(transactions) {
+    console.log('[차트 업데이트] 월별 집계 시작...', transactions.length + '건');
+    
+    // 월별 매출 집계
+    const monthlyData = {};
+    
+    transactions.forEach(function(t) {
+        const date = new Date(t.date);
+        if (isNaN(date.getTime())) return;
+        
+        const yearMonth = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+        
+        if (!monthlyData[yearMonth]) {
+            monthlyData[yearMonth] = 0;
+        }
+        
+        monthlyData[yearMonth] += parseFloat(t.amount) || 0;
+    });
+    
+    // monthlyRevenue 형식으로 변환
+    const monthlyRevenue = Object.keys(monthlyData)
+        .sort()
+        .map(function(month) {
+            return {
+                month: month,
+                revenue: monthlyData[month]
+            };
+        });
+    
+    console.log('[차트 업데이트] 월별 집계 결과:', monthlyRevenue);
+    
+    // userData.data 업데이트
+    if (userData && userData.data) {
+        userData.data.monthlyRevenue = monthlyRevenue;
+        
+        // 이번 달 매출 계산
+        const now = new Date();
+        const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        userData.data.currentMonthRevenue = monthlyData[currentMonth] || 0;
+        
+        // 전월 매출 계산
+        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonth = lastMonthDate.getFullYear() + '-' + String(lastMonthDate.getMonth() + 1).padStart(2, '0');
+        userData.data.lastMonthRevenue = monthlyData[lastMonth] || 0;
+        
+        console.log('[차트 업데이트] 이번 달:', userData.data.currentMonthRevenue, '/ 전월:', userData.data.lastMonthRevenue);
+    }
+    
+    // 차트 및 통계 업데이트
+    updateStatCards();
+    updateCharts();
+    
+    console.log('[차트 업데이트] 완료!');
 }
 
 // 회사 전환
