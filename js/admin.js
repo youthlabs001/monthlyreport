@@ -524,8 +524,8 @@ function processExcelData(jsonData, targetUser, selectedCompanies) {
             if (!transaction.category) {
                 throw new Error('매출종류가 없습니다');
             }
-            if (isNaN(transaction.amount) || transaction.amount <= 0) {
-                throw new Error('금액이 올바르지 않습니다');
+            if (isNaN(transaction.amount) || transaction.amount < 0) {
+                throw new Error('금액이 올바르지 않습니다 (음수 불가)');
             }
             
             // 상태 검증
@@ -647,8 +647,8 @@ function setupManualEntry() {
             return;
         }
         
-        if (formData.amount <= 0) {
-            alert('금액은 0보다 커야 합니다.');
+        if (formData.amount < 0) {
+            alert('금액은 음수가 될 수 없습니다.');
             return;
         }
         
