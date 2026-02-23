@@ -24,8 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 버튼 이벤트
     setupButtons();
     
-    // 엑셀 업로드 기능
-    setupExcelUpload();
+    // 엑셀 업로드 기능 (제거됨 - 재구현 예정)
+    // setupExcelUpload();
     
     // 수기 등록 기능
     setupManualEntry();
