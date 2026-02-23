@@ -761,6 +761,8 @@ async function fetchGoogleSheetsData() {
     showMessage('데이터를 가져오는 중...', 'info');
     
     try {
+        console.log('[Google Sheets] CSV URL:', csvUrl);
+        
         const response = await fetch(csvUrl);
         
         if (!response.ok) {
@@ -768,12 +770,14 @@ async function fetchGoogleSheetsData() {
         }
         
         const csvText = await response.text();
+        console.log('[Google Sheets] CSV 원본 데이터 (첫 500자):', csvText.substring(0, 500));
         
         // CSV 파싱
         const parsedData = parseCSV(csvText);
+        console.log('[Google Sheets] 파싱된 데이터:', parsedData);
         
         if (parsedData.length === 0) {
-            showMessage('데이터가 없습니다.', 'error');
+            showMessage('데이터가 없습니다. 콘솔(F12)에서 원본 데이터를 확인하세요.', 'error');
             return;
         }
         
@@ -801,27 +805,59 @@ async function fetchGoogleSheetsData() {
     }
 }
 
-// CSV 파싱 함수
+// CSV 파싱 함수 (개선된 버전)
 function parseCSV(csvText) {
-    const lines = csvText.trim().split('\n');
+    const lines = csvText.trim().split(/\r?\n/);
     const transactions = [];
+    
+    console.log('[CSV 파싱] 총 라인 수:', lines.length);
+    
+    // 헤더 확인
+    if (lines.length > 0) {
+        console.log('[CSV 파싱] 헤더:', lines[0]);
+    }
     
     // 헤더 제외 (첫 행)
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         
-        // CSV 파싱 (쉼표로 구분, 따옴표 처리)
-        const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+        // CSV 파싱 - 쉼표로 구분하되 따옴표 안의 쉼표는 무시
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current.trim()); // 마지막 값 추가
+        
+        // 따옴표 제거
         const cleanValues = values.map(v => v.replace(/^"|"$/g, '').trim());
         
-        if (cleanValues.length < 4) continue;
+        if (cleanValues.length < 4) {
+            console.log(`[CSV 파싱] 행 ${i}: 컬럼 부족 (${cleanValues.length}개)`, cleanValues);
+            continue;
+        }
+        
+        // 금액 파싱 (쉼표, 공백 등 제거)
+        const amountStr = cleanValues[3].replace(/[,\s]/g, '');
+        const amount = parseFloat(amountStr);
         
         const transaction = {
             date: cleanValues[0],
             client: cleanValues[1],
             category: cleanValues[2],
-            amount: parseFloat(cleanValues[3].replace(/[^0-9.-]/g, '')) || 0,
+            amount: isNaN(amount) ? 0 : amount,
             status: cleanValues[4] || 'completed',
             note: cleanValues[5] || ''
         };
@@ -829,9 +865,13 @@ function parseCSV(csvText) {
         // 유효성 검사
         if (transaction.date && transaction.client && transaction.category && transaction.amount >= 0) {
             transactions.push(transaction);
+            console.log(`[CSV 파싱] 행 ${i} 성공:`, transaction);
+        } else {
+            console.log(`[CSV 파싱] 행 ${i} 유효성 실패:`, transaction);
         }
     }
     
+    console.log('[CSV 파싱] 최종 결과:', transactions.length + '건');
     return transactions;
 }
 
