@@ -595,6 +595,22 @@ function formatCurrency(value) {
     return '₩' + Math.round(value).toLocaleString('ko-KR');
 }
 
+// 퍼센트 포맷 함수
+function formatPercent(value) {
+    if (typeof value !== 'number') value = 0;
+    return value.toFixed(1) + '%';
+}
+
+// 월 포맷 함수
+function formatMonthKo(monthStr) {
+    // "2026-1" → "2026년 1월"
+    if (typeof monthStr === 'string' && monthStr.includes('-')) {
+        const parts = monthStr.split('-');
+        return `${parts[0]}년 ${parts[1]}월`;
+    }
+    return monthStr;
+}
+
 // 이벤트 리스너 설정
 function setupEventListeners() {
     // 로그아웃 버튼
