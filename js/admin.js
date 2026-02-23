@@ -568,33 +568,34 @@ function saveTransactionsToStorage(userEmail, companyName, transactions) {
     
     // 2) Supabase DB에 저장
     if (typeof supabase !== 'undefined' && supabase) {
-        supabase.auth.getSession().then(function(sessionRes) {
-            // 인증 여부 확인 (익명도 허용하도록 수정)
-            const rows = transactions.map(function(t) {
-                return {
-                    user_email: userEmail,
-                    company_name: companyName,
-                    transaction_date: t.date,
-                    client: t.client,
-                    category: t.category,
-                    amount: t.amount,
-                    status: t.status || 'completed',
-                    note: t.note || ''
-                };
-            });
-            
-            supabase.from('transactions').insert(rows).then(function(result) {
-                if (result.error) {
-                    console.error('[Supabase] 거래 데이터 저장 실패:', result.error.message);
-                } else {
-                    console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
-                }
-            }).catch(function(e) {
-                console.error('[Supabase] 거래 데이터 저장 오류:', e);
-            });
-        }).catch(function(e) {
-            console.warn('[Supabase] 세션 확인 실패, 로컬만 저장:', e);
+        const rows = transactions.map(function(t) {
+            return {
+                user_email: userEmail,
+                company_name: companyName,
+                transaction_date: t.date,
+                client: t.client,
+                category: t.category,
+                amount: t.amount,
+                status: t.status || 'completed',
+                note: t.note || ''
+            };
         });
+        
+        supabase.from('transactions').insert(rows).then(function(result) {
+            if (result.error) {
+                console.error('[Supabase] 거래 데이터 저장 실패:', result.error);
+                showMessage('Supabase 저장 실패: ' + result.error.message, 'error');
+            } else {
+                console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
+                showMessage(`Supabase DB에 ${transactions.length}건 저장 완료!`, 'success');
+            }
+        }).catch(function(e) {
+            console.error('[Supabase] 거래 데이터 저장 오류:', e);
+            showMessage('Supabase 저장 오류: ' + (e.message || e), 'error');
+        });
+    } else {
+        console.warn('[Supabase] 연결 안 됨, localStorage만 저장');
+        showMessage('localStorage에만 저장됨 (Supabase 미연결)', 'info');
     }
 }
 
