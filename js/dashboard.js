@@ -30,8 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 회사 선택 초기화
     initCompanySelector(baseUserData);
     
-    // 초기화
-    initDashboard();
+    // 이벤트 리스너만 먼저 설정 (initDashboard는 loadCompanyData에서 호출)
     setupEventListeners();
     
     // 관리자 테스트 모드(사용자로 접속) 시 배너 표시
@@ -111,6 +110,9 @@ function loadCompanyData() {
     
     // 선택한 회사 저장
     Storage.setSelectedCompany(currentUser.email, currentCompany);
+    
+    // 대시보드 초기화 (사용자 정보 표시)
+    initDashboard();
     
     // Supabase에서 거래 데이터 로드
     loadTransactionsFromSupabase();
@@ -239,14 +241,11 @@ function destroyAllCharts() {
 function switchCompany(companyName) {
     currentCompany = companyName;
     
-    // 데이터 로드
-    loadCompanyData();
-    
     // 차트 제거
     destroyAllCharts();
     
-    // 대시보드 전체 재초기화
-    initDashboard();
+    // 데이터 로드 (내부에서 initDashboard 호출)
+    loadCompanyData();
 }
 
 // 모든 차트 제거
