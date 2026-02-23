@@ -35,17 +35,35 @@
         </div>
     </div>
     
-    <script>
-        // Supabase 설정 (최우선 로드)
-        window.SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
-        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
-        var SUPABASE_URL = window.SUPABASE_URL;
-        var SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
-        console.log('[HTML] Supabase 설정 완료:', SUPABASE_URL);
-    </script>
     <script src="js/config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase.js"></script>
+    <script>
+        // Supabase 설정
+        var SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+        var supabase = null;
+        
+        // CDN 동적 로드
+        function loadSupabaseCDN() {
+            return new Promise(function(resolve, reject) {
+                var script = document.createElement('script');
+                script.src = 'https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js';
+                script.crossOrigin = 'anonymous';
+                script.onload = function() { resolve(); };
+                script.onerror = function() { reject(new Error('CDN load failed')); };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Supabase 초기화
+        loadSupabaseCDN().then(function() {
+            if (window.supabase && window.supabase.createClient) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase 초기화 완료');
+            }
+        }).catch(function(err) {
+            console.error('❌ Supabase CDN 로드 실패:', err);
+        });
+    </script>
     <script src="js/auth.js"></script>
 </body>
 </html>
