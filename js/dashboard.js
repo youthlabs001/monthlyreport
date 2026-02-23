@@ -95,18 +95,31 @@ function initCompanySelector(baseUserData) {
 function loadCompanyData() {
     const baseUserData = DEMO_USERS[currentUser.email];
     
-    // 첫 번째 회사 (기본 데이터)
-    if (currentCompany === baseUserData.companyName) {
-        userData = baseUserData;
-    } 
-    // 추가 회사들
-    else if (COMPANY_DATA[currentUser.email] && COMPANY_DATA[currentUser.email][currentCompany]) {
-        userData = COMPANY_DATA[currentUser.email][currentCompany];
+    console.log('[loadCompanyData] currentUser.email:', currentUser.email);
+    console.log('[loadCompanyData] currentCompany:', currentCompany);
+    console.log('[loadCompanyData] baseUserData:', baseUserData);
+    
+    if (!baseUserData) {
+        console.error('[loadCompanyData] baseUserData가 없습니다!');
+        return;
     }
-    // 데이터가 없으면 기본 데이터 사용
-    else {
-        userData = baseUserData;
-    }
+    
+    // userData 설정
+    userData = {
+        companyName: currentCompany,
+        fullName: baseUserData.fullName || currentUser.email,
+        email: currentUser.email,
+        data: {
+            currentMonthRevenue: 0,
+            lastMonthRevenue: 0,
+            transactions: [],
+            monthlyRevenue: [],
+            lastYearRevenue: [],
+            monthlyData: {}
+        }
+    };
+    
+    console.log('[loadCompanyData] userData 설정 완료:', userData);
     
     // 선택한 회사 저장
     Storage.setSelectedCompany(currentUser.email, currentCompany);
@@ -327,18 +340,35 @@ function escapeHtml(text) {
 
 // 사용자 정보 업데이트
 function updateUserInfo() {
+    console.log('[updateUserInfo] 실행 중...');
+    console.log('[updateUserInfo] userData:', userData);
+    console.log('[updateUserInfo] currentUser:', currentUser);
+    console.log('[updateUserInfo] currentCompany:', currentCompany);
+    
     // 좌측 패널 사용자 정보
     const userNameLarge = document.getElementById('userNameLarge');
     const userEmailLarge = document.getElementById('userEmailLarge');
     
-    if (userNameLarge) userNameLarge.textContent = userData.companyName || currentCompany;
-    if (userEmailLarge) userEmailLarge.textContent = currentUser.email;
+    const displayName = currentCompany || userData?.companyName || '회사명';
+    const displayEmail = currentUser?.email || 'user@company.com';
+    
+    if (userNameLarge) {
+        userNameLarge.textContent = displayName;
+        console.log('[updateUserInfo] 회사명 설정:', displayName);
+    }
+    if (userEmailLarge) {
+        userEmailLarge.textContent = displayEmail;
+        console.log('[updateUserInfo] 이메일 설정:', displayEmail);
+    }
     
     // 날짜 정보
     const today = new Date();
     const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 기준`;
     const dateInfo = document.getElementById('dateInfo');
-    if (dateInfo) dateInfo.textContent = dateStr;
+    if (dateInfo) {
+        dateInfo.textContent = dateStr;
+        console.log('[updateUserInfo] 날짜 설정:', dateStr);
+    }
 }
 
 // 빠른 통계 업데이트
