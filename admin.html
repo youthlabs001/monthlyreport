@@ -623,6 +623,23 @@
     </script>
     <script src="js/config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Supabase 클라이언트 즉시 초기화
+        var supabase = null;
+        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('[Supabase] 클라이언트 초기화 완료:', supabase ? '✓' : '✗');
+            
+            // 연결 테스트
+            supabase.auth.getSession().then(function(res) {
+                console.log('[Supabase] 연결 테스트 성공');
+            }).catch(function(e) {
+                console.warn('[Supabase] 연결 테스트 실패:', e);
+            });
+        } else {
+            console.error('[Supabase] CDN 로드 실패 - window.supabase가 없습니다');
+        }
+    </script>
     <script src="js/supabase.js"></script>
     <script src="js/admin.js"></script>
 </body>
