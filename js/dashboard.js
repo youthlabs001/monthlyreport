@@ -123,11 +123,12 @@ function loadTransactionsFromSupabase() {
     if (typeof supabase === 'undefined' || !supabase) {
         console.log('[Supabase] 연결 안 됨, localStorage만 사용');
         updateStatCards();
-        // 차트는 DOMContentLoaded에서 이미 생성됨
+        createRevenueChart(); // 빈 차트라도 표시
         return;
     }
     
     console.log(`[Supabase] ${currentCompany} 데이터 조회 중...`);
+    console.log(`[Supabase] 필터 - user_email: ${currentUser.email}, company_name: ${currentCompany}`);
     
     supabase.from('transactions')
         .select('*')
@@ -136,8 +137,16 @@ function loadTransactionsFromSupabase() {
         .then(function(result) {
             console.log(`[Supabase] 조회 결과:`, result);
             
+            if (result.error) {
+                console.error('[Supabase] 조회 에러:', result.error);
+                updateStatCards();
+                createRevenueChart(); // 빈 차트라도 표시
+                return;
+            }
+            
             if (result.data && result.data.length > 0) {
                 console.log(`[Supabase] ${currentCompany}의 거래 데이터 ${result.data.length}건 로드됨`);
+                console.log(`[Supabase] 첫 번째 데이터 샘플:`, result.data[0]);
                 
                 // Supabase 데이터를 localStorage에 캐시
                 const storageKey = `transactions_${currentUser.email}_${currentCompany}`;
@@ -158,15 +167,17 @@ function loadTransactionsFromSupabase() {
                 // 월별 데이터 집계 및 차트 업데이트
                 aggregateAndUpdateCharts(transactions);
             } else {
-                console.log(`[Supabase] ${currentCompany}의 거래 데이터 없음`);
-                // Supabase에 데이터 없으면 기본 차트 표시
+                console.log(`[Supabase] ${currentCompany}의 거래 데이터 없음 (0건)`);
+                // Supabase에 데이터 없으면 빈 차트 표시
                 updateStatCards();
+                createRevenueChart(); // 빈 차트라도 표시
             }
         })
         .catch(function(err) {
             console.error('[Supabase] 거래 데이터 로드 실패:', err);
-            // 에러 시 기본 차트 표시
+            // 에러 시 빈 차트 표시
             updateStatCards();
+            createRevenueChart(); // 빈 차트라도 표시
         });
 }
 
@@ -174,57 +185,66 @@ function loadTransactionsFromSupabase() {
 function aggregateAndUpdateCharts(transactions) {
     console.log('[차트 업데이트] 월별 집계 시작...', transactions.length + '건');
     
-    // 월별 매출 집계
+    // 현재 연도 및 전년도
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
+    
+    console.log(`[차트 업데이트] 현재 연도: ${currentYear}, 전년도: ${lastYear}`);
+    
+    // 월별 데이터 집계 (연도별로 분리)
     const monthlyData = {};
     
     transactions.forEach(function(t) {
         const date = new Date(t.date);
-        if (isNaN(date.getTime())) return;
-        
-        const yearMonth = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
-        
-        if (!monthlyData[yearMonth]) {
-            monthlyData[yearMonth] = 0;
+        if (isNaN(date.getTime())) {
+            console.log('[차트 업데이트] 날짜 파싱 실패:', t.date);
+            return;
         }
         
-        monthlyData[yearMonth] += parseFloat(t.amount) || 0;
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // 1-12
+        
+        // 올해와 전년도만 집계
+        if (year !== currentYear && year !== lastYear) {
+            return;
+        }
+        
+        const key = `${year}-${month}`;
+        
+        if (!monthlyData[key]) {
+            monthlyData[key] = 0;
+        }
+        
+        monthlyData[key] += parseFloat(t.amount) || 0;
     });
     
-    // monthlyRevenue 형식으로 변환
-    const monthlyRevenue = Object.keys(monthlyData)
-        .sort()
-        .map(function(month) {
-            return {
-                month: month,
-                revenue: monthlyData[month]
-            };
-        });
+    console.log('[차트 업데이트] 월별 집계 결과:', monthlyData);
     
-    console.log('[차트 업데이트] 월별 집계 결과:', monthlyRevenue);
+    // 이번 달/전월 매출 계산
+    const now = new Date();
+    const currentMonth = `${currentYear}-${now.getMonth() + 1}`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = `${lastMonthDate.getFullYear()}-${lastMonthDate.getMonth() + 1}`;
     
-    // userData.data 업데이트
-    if (userData && userData.data) {
-        userData.data.monthlyRevenue = monthlyRevenue;
-        
-        // 이번 달 매출 계산
-        const now = new Date();
-        const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-        userData.data.currentMonthRevenue = monthlyData[currentMonth] || 0;
-        
-        // 전월 매출 계산
-        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonth = lastMonthDate.getFullYear() + '-' + String(lastMonthDate.getMonth() + 1).padStart(2, '0');
-        userData.data.lastMonthRevenue = monthlyData[lastMonth] || 0;
-        
-        console.log('[차트 업데이트] 이번 달:', userData.data.currentMonthRevenue, '/ 전월:', userData.data.lastMonthRevenue);
+    const currentMonthRevenue = monthlyData[currentMonth] || 0;
+    const lastMonthRevenue = monthlyData[lastMonth] || 0;
+    
+    // userData 업데이트
+    if (!userData.data) {
+        userData.data = {};
     }
+    userData.data.currentMonthRevenue = currentMonthRevenue;
+    userData.data.lastMonthRevenue = lastMonthRevenue;
+    userData.data.monthlyData = monthlyData; // 차트용 원본 데이터 저장
+    
+    console.log('[차트 업데이트] 이번 달:', currentMonthRevenue, '/ 전월:', lastMonthRevenue);
     
     // 통계 업데이트
     updateStatCards();
     
     // 차트 다시 그리기
     destroyAllCharts();
-    createRevenueChart();
+    createRevenueChart(monthlyData, currentYear, lastYear);
     
     console.log('[차트 업데이트] 완료!');
 }
@@ -269,9 +289,6 @@ function initDashboard() {
     
     // 차트 생성
     createRevenueChart();
-    
-    // 우측 공지사항 (관리자에서 등록한 목록)
-    updateDashboardNotices();
 }
 
 // 관리자에서 등록한 공지사항 표시
@@ -393,65 +410,93 @@ function updateStatCards() {
     document.getElementById('avgTransaction').textContent = formatCurrency(Math.round(avgTransaction));
 }
 
-// 월별 매출 추이 차트
-function createRevenueChart() {
+// 월별 매출 추이 차트 (관리자 화면과 동일)
+function createRevenueChart(monthlyData, currentYear, lastYear) {
     const ctx = document.getElementById('revenueChart');
-    const data = userData.data;
+    if (!ctx) {
+        console.error('[차트] revenueChart 캔버스를 찾을 수 없습니다');
+        return;
+    }
     
+    // 기본값 설정 (파라미터가 없는 경우)
+    if (!monthlyData) {
+        monthlyData = userData.data?.monthlyData || {};
+    }
+    if (!currentYear) {
+        currentYear = new Date().getFullYear();
+    }
+    if (!lastYear) {
+        lastYear = currentYear - 1;
+    }
+    
+    console.log('[차트] 생성 시작 - 올해:', currentYear, ', 전년:', lastYear);
+    console.log('[차트] monthlyData:', monthlyData);
+    
+    // 1월~12월 레이블
+    const labels = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+    
+    // 올해 데이터 (2026년)
+    const thisYearData = [];
+    for (let m = 1; m <= 12; m++) {
+        const key = `${currentYear}-${m}`;
+        thisYearData.push(monthlyData[key] || 0);
+    }
+    
+    // 전년 데이터 (2025년)
+    const lastYearData = [];
+    for (let m = 1; m <= 12; m++) {
+        const key = `${lastYear}-${m}`;
+        lastYearData.push(monthlyData[key] || 0);
+    }
+    
+    console.log('[차트] 2026년 데이터:', thisYearData);
+    console.log('[차트] 2025년 데이터:', lastYearData);
+    
+    // Chart.js 렌더링
     charts.revenue = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: data.monthlyRevenue.map(item => formatMonthKo(item.month)),
+            labels: labels,
             datasets: [
                 {
-                    label: '2026년',
-                    data: data.monthlyRevenue.map(item => item.revenue / 1000000),
+                    label: `${currentYear}년`,
+                    data: thisYearData,
                     borderColor: '#4F46E5',
                     backgroundColor: 'rgba(79, 70, 229, 0.1)',
                     tension: 0.4,
                     fill: true,
-                    pointRadius: 8,
-                    pointHoverRadius: 12,
-                    pointBackgroundColor: '#4F46E5',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverBackgroundColor: '#4F46E5',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 3
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 },
                 {
-                    label: '2025년',
-                    data: data.lastYearRevenue.map(item => item.revenue / 1000000),
+                    label: `${lastYear}년`,
+                    data: lastYearData,
                     borderColor: '#10B981',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
                     tension: 0.4,
                     fill: true,
-                    pointRadius: 8,
-                    pointHoverRadius: 12,
-                    pointBackgroundColor: '#10B981',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverBackgroundColor: '#10B981',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 3
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'point',
-                intersect: true
-            },
             plugins: {
                 legend: {
-                    display: false
+                    display: true,
+                    position: 'top'
                 },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return context.dataset.label + ': ₩' + (context.parsed.y * 1000000).toLocaleString('ko-KR');
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += formatCurrency(context.parsed.y);
+                            return label;
                         }
                     }
                 }
@@ -461,28 +506,21 @@ function createRevenueChart() {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return '₩' + value + 'M';
+                            return formatCurrency(value);
                         }
-                    }
-                }
-            },
-            onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const element = elements[0];
-                    const datasetIndex = element.datasetIndex;
-                    const index = element.index;
-                    
-                    // 2026년 데이터만 상세 보기 (datasetIndex === 0)
-                    if (datasetIndex === 0) {
-                        const monthData = data.monthlyRevenue[index];
-                        showRevenueDetailModal(monthData, index);
-                    } else {
-                        showNotification('2026년 데이터의 점을 클릭하면 상세 내역을 볼 수 있습니다.', 'info');
                     }
                 }
             }
         }
     });
+    
+    console.log('[차트] 생성 완료');
+}
+
+// 통화 포맷 함수
+function formatCurrency(value) {
+    if (typeof value !== 'number') value = 0;
+    return '₩' + Math.round(value).toLocaleString('ko-KR');
 }
 
 // 이벤트 리스너 설정

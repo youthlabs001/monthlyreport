@@ -1,8 +1,8 @@
-/* 대시보드 레이아웃 - 3단 구성 */
+/* 대시보드 레이아웃 - 2단 구성 (공지사항 제거) */
 .dashboard-body {
     background: #F3F4F6;
     display: grid;
-    grid-template-columns: 320px 1fr 350px;
+    grid-template-columns: 320px 1fr;
     grid-template-rows: auto 1fr;
     height: 100vh;
     overflow: hidden;
