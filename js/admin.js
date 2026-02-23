@@ -914,8 +914,23 @@ function syncUsersToSupabase() {
             var ids = (r.data || []).map(function(x) { return x.id; });
             if (ids.length === 0) {
                 if (usersData.length === 0) return;
+                // localStorage의 비밀번호 정보도 함께 저장
+                var additions = {};
+                try {
+                    var stored = localStorage.getItem('demo_users_additions');
+                    if (stored) additions = JSON.parse(stored);
+                } catch (e) {}
+                
                 var rows = usersData.map(function(u) {
-                    return { name: u.name, email: u.email, companies: u.companies || [], join_date: u.joinDate || '', status: u.status || '활성' };
+                    var userAuth = additions[u.email] || (DEMO_USERS[u.email] || {});
+                    return {
+                        name: u.name,
+                        email: u.email,
+                        password_hash: userAuth.password || '',
+                        companies: u.companies || [],
+                        join_date: u.joinDate || '',
+                        status: u.status || '활성'
+                    };
                 });
                 supabase.from('app_users').insert(rows).then(function() {}).catch(function(e) {
                     console.warn('[Supabase] app_users 저장 실패:', e && e.message);

@@ -66,6 +66,68 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessage('비밀번호가 올바르지 않습니다.', 'error');
             return;
         }
+        
+        // 3) Supabase DB에서 확인 (localStorage에 없는 경우)
+        if (typeof supabase !== 'undefined' && supabase) {
+            supabase.from('app_users')
+                .select('*')
+                .eq('email', email)
+                .single()
+                .then(function(result) {
+                    if (result.data && result.data.password_hash === password) {
+                        // Supabase에서 찾은 사용자 정보를 localStorage에 저장
+                        var companies = result.data.companies || [];
+                        var companyName = companies.length > 0 ? companies[0] : '';
+                        
+                        // DEMO_USERS에 추가 (다음 로그인부터 빠르게)
+                        if (typeof DEMO_USERS !== 'undefined') {
+                            DEMO_USERS[email] = {
+                                password: password,
+                                fullName: result.data.name,
+                                isAdmin: false,
+                                companyName: companyName,
+                                companies: companies,
+                                data: {
+                                    currentMonthRevenue: 0,
+                                    lastMonthRevenue: 0,
+                                    monthlyRevenue: [],
+                                    lastYearRevenue: [],
+                                    categories: [],
+                                    weeklyData: [],
+                                    quarterlyGrowth: [],
+                                    transactions: []
+                                }
+                            };
+                            
+                            // localStorage에도 저장
+                            try {
+                                var additions = JSON.parse(localStorage.getItem('demo_users_additions') || '{}');
+                                additions[email] = DEMO_USERS[email];
+                                localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+                            } catch (e) {}
+                        }
+                        
+                        Storage.setUser({
+                            email: email,
+                            companyName: companyName,
+                            fullName: result.data.name,
+                            remember: remember
+                        });
+                        showMessage('로그인 성공!', 'success');
+                        setTimeout(function() {
+                            window.location.href = 'dashboard.html';
+                        }, 500);
+                        return;
+                    }
+                    showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
+                })
+                .catch(function(err) {
+                    console.error('Supabase 사용자 조회 실패:', err);
+                    showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
+                });
+            return;
+        }
+        
         showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
     });
     
