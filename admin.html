@@ -27,9 +27,6 @@
                 <button class="menu-item" data-menu="manual-entry">
                     <span>수기 등록</span>
                 </button>
-                <button class="menu-item" data-menu="upload">
-                    <span>데이터 업로드</span>
-                </button>
                 <button class="menu-item" data-menu="backup">
                     <span>백업/복원</span>
                 </button>
@@ -262,95 +259,6 @@
                         <h4>등록 완료!</h4>
                         <p>매출 데이터가 성공적으로 등록되었습니다.</p>
                         <button class="btn-primary" onclick="document.getElementById('entrySuccess').style.display='none'">확인</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 데이터 업로드 -->
-        <div id="upload-menu" class="menu-content">
-            <div class="upload-section">
-                <div class="upload-header">
-                    <h3>매출 데이터 업로드</h3>
-                    <p>엑셀 파일을 통해 사용자의 매출 데이터를 일괄 등록할 수 있습니다</p>
-                </div>
-                
-                <div class="upload-steps">
-                    <div class="step-card">
-                        <div class="step-number">1</div>
-                        <h4>양식 다운로드</h4>
-                        <p>매출 데이터 입력 양식을 다운로드하세요</p>
-                        <button class="btn-download" id="downloadTemplateBtn">
-                            엑셀 양식 다운로드
-                        </button>
-                    </div>
-                    
-                    <div class="step-card">
-                        <div class="step-number">2</div>
-                        <h4>데이터 입력</h4>
-                        <p>양식에 맞춰 매출 데이터를 입력하세요</p>
-                        <div class="format-info">
-                            <strong>필수 항목:</strong> 날짜, 거래처, 매출종류, 금액
-                        </div>
-                    </div>
-                    
-                    <div class="step-card">
-                        <div class="step-number">3</div>
-                        <h4>파일 업로드</h4>
-                        <p>작성한 엑셀 파일을 업로드하세요</p>
-                        <div class="upload-area" id="uploadArea">
-                            <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;">
-                            <div class="upload-content">
-                                <div class="upload-icon">+</div>
-                                <p><strong>파일을 드래그하거나 클릭하여 선택하세요</strong></p>
-                                <p class="file-info">지원 형식: .xlsx, .xls</p>
-                            </div>
-                        </div>
-                        <button class="btn-upload" id="uploadBtn" disabled>
-                            데이터 업로드
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 업로드 결과 -->
-                <div id="uploadResult" class="upload-result" style="display: none;">
-                    <div class="result-header">
-                        <h4>업로드 결과</h4>
-                        <button class="btn-close-result" id="closeResultBtn">×</button>
-                    </div>
-                    <div class="result-content">
-                        <div class="result-stats">
-                            <div class="result-stat">
-                                <span class="result-label">총 데이터</span>
-                                <span class="result-value" id="totalRows">0</span>
-                            </div>
-                            <div class="result-stat success">
-                                <span class="result-label">성공</span>
-                                <span class="result-value" id="successRows">0</span>
-                            </div>
-                            <div class="result-stat error">
-                                <span class="result-label">실패</span>
-                                <span class="result-value" id="errorRows">0</span>
-                            </div>
-                        </div>
-                        <div id="errorDetails" class="error-details"></div>
-                    </div>
-                </div>
-                
-                <!-- 사용자 및 회사 선택 -->
-                <div class="user-selection">
-                    <label for="targetUserSelect">등록대상 사용자:</label>
-                    <select id="targetUserSelect" class="user-select" onchange="updateCompanySelection()">
-                        <option value="">사용자를 선택하세요</option>
-                        <!-- 동적으로 생성됨 -->
-                    </select>
-                </div>
-                
-                <!-- 회사 선택 (복수 선택 가능) -->
-                <div class="company-selection" id="companySelectionArea" style="display: none; margin-top: 16px;">
-                    <label>업로드 대상 회사 (복수 선택 가능):</label>
-                    <div id="companyCheckboxes" class="company-checkboxes">
-                        <!-- 동적으로 생성됨 -->
                     </div>
                 </div>
             </div>
