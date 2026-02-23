@@ -92,24 +92,25 @@
     background: white;
     border-radius: 10px;
     border: 2px solid var(--border-color);
+    margin-top: 16px;
 }
 
 .selector-label {
     display: block;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .company-select {
     width: 100%;
-    padding: 10px 14px;
+    padding: 12px 16px;
     border: 2px solid var(--border-color);
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--primary-color);
     background: white;
@@ -205,8 +206,9 @@
 }
 
 .btn-logout-left {
-    margin: 20px;
+    margin: 16px 0 0 0;
     padding: 12px;
+    width: 100%;
     background: rgba(239, 68, 68, 0.1);
     color: var(--danger-color);
     border: 1px solid rgba(239, 68, 68, 0.2);
