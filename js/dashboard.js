@@ -5,13 +5,19 @@ let userData = null;
 let charts = {};
 let currentCompany = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+// 초기화 함수
+function initApp() {
+    console.log('[initApp] 시작');
+    
     // 로그인 확인
     currentUser = Storage.getUser();
     if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
+    
+    console.log('[initApp] currentUser:', currentUser);
+    
     // 관리자 계정은 기본적으로 관리자 페이지로 이동 (단, '대시보드로 돌아가기'로 온 경우는 표시)
     if (isAdminUser(currentUser.email) && !sessionStorage.getItem('adminViewDashboard')) {
         window.location.href = 'admin.html';
@@ -21,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 사용자 데이터 로드
     const baseUserData = DEMO_USERS[currentUser.email];
+    console.log('[initApp] baseUserData:', baseUserData);
+    
     if (!baseUserData) {
         Storage.removeUser();
         window.location.href = 'index.html';
@@ -35,7 +43,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 관리자 테스트 모드(사용자로 접속) 시 배너 표시
     setupImpersonationBanner();
-});
+}
+
+// DOM 로드 완료 여부 확인 후 실행
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    // 이미 로드 완료된 경우 즉시 실행
+    initApp();
+}
 
 // 관리자가 사용자 계정으로 접속한 경우 배너 표시 및 복귀 버튼
 function setupImpersonationBanner() {
