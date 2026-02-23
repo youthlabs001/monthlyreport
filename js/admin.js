@@ -712,42 +712,35 @@ function setupManualEntry() {
 // 수기 등록 데이터 저장
 function saveManualEntry(data) {
     const targetEmail = data.user;
-    const storageKey = `transactions_${targetEmail}`;
-    
-    // 기존 데이터 가져오기
-    let transactions = [];
-    try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-            transactions = JSON.parse(stored);
-        }
-    } catch (error) {
-        console.error('데이터 로드 오류:', error);
+    const targetUser = usersData.find(u => u.email === targetEmail);
+    if (!targetUser) {
+        alert('사용자를 찾을 수 없습니다.');
+        return;
     }
     
-    // 새 거래 추가
-    const newTransaction = {
+    // 사용자의 모든 회사에 저장
+    const userCompanies = targetUser.companies || [];
+    if (userCompanies.length === 0) {
+        alert('사용자에게 등록된 회사가 없습니다.');
+        return;
+    }
+    
+    const transaction = {
         id: data.id,
         date: data.date,
         client: data.client,
         category: data.category,
         amount: data.amount,
         status: data.status,
-        note: data.note || '',
-        createdAt: new Date().toISOString(),
-        createdBy: 'admin'
+        note: data.note || ''
     };
     
-    transactions.push(newTransaction);
+    // 각 회사별로 저장 (Supabase + localStorage)
+    userCompanies.forEach(companyName => {
+        saveTransactionsToStorage(targetEmail, companyName, [transaction]);
+    });
     
-    // 저장
-    try {
-        localStorage.setItem(storageKey, JSON.stringify(transactions));
-        console.log('매출 데이터 저장 완료:', newTransaction);
-    } catch (error) {
-        console.error('데이터 저장 오류:', error);
-        alert('데이터 저장 중 오류가 발생했습니다.');
-    }
+    console.log(`매출 데이터 ${userCompanies.length}개 회사에 저장 완료:`, transaction);
 }
 
 // 등록 성공 메시지 표시
