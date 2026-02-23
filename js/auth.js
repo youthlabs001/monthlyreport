@@ -47,32 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // 2) 데모 계정 확인 (로컬 DEMO_USERS)
-        if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
-            var user = DEMO_USERS[email];
-            if (user.password === password) {
-                Storage.setUser({
-                    email: email,
-                    companyName: user.companyName || '',
-                    fullName: user.fullName || email,
-                    remember: remember
-                });
-                showMessage('로그인 성공!', 'success');
-                setTimeout(function() {
-                    window.location.href = (typeof isAdminUser === 'function' && isAdminUser(email)) ? 'admin.html' : 'dashboard.html';
-                }, 500);
-                return;
-            }
-            showMessage('비밀번호가 올바르지 않습니다.', 'error');
-            return;
-        }
-        
-        // 3) Supabase DB에서 확인 (localStorage에 없는 경우)
+        // 2) Supabase DB에서 먼저 확인 (다른 PC에서도 접속 가능하도록)
         if (typeof supabase !== 'undefined' && supabase) {
             supabase.from('app_users')
                 .select('*')
                 .eq('email', email)
-                .single()
+                .maybeSingle()
                 .then(function(result) {
                     if (result.data && result.data.password_hash === password) {
                         // Supabase에서 찾은 사용자 정보를 localStorage에 저장
@@ -119,12 +99,68 @@ document.addEventListener('DOMContentLoaded', () => {
                         }, 500);
                         return;
                     }
+                    
+                    // Supabase DB에 없으면 로컬 DEMO_USERS 확인
+                    if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
+                        var user = DEMO_USERS[email];
+                        if (user.password === password) {
+                            Storage.setUser({
+                                email: email,
+                                companyName: user.companyName || '',
+                                fullName: user.fullName || email,
+                                remember: remember
+                            });
+                            showMessage('로그인 성공!', 'success');
+                            setTimeout(function() {
+                                window.location.href = (typeof isAdminUser === 'function' && isAdminUser(email)) ? 'admin.html' : 'dashboard.html';
+                            }, 500);
+                            return;
+                        }
+                    }
+                    
                     showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
                 })
                 .catch(function(err) {
                     console.error('Supabase 사용자 조회 실패:', err);
-                    showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
+                    // Supabase 오류 시 로컬 DEMO_USERS로 폴백
+                    if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
+                        var user = DEMO_USERS[email];
+                        if (user.password === password) {
+                            Storage.setUser({
+                                email: email,
+                                companyName: user.companyName || '',
+                                fullName: user.fullName || email,
+                                remember: remember
+                            });
+                            showMessage('로그인 성공!', 'success');
+                            setTimeout(function() {
+                                window.location.href = (typeof isAdminUser === 'function' && isAdminUser(email)) ? 'admin.html' : 'dashboard.html';
+                            }, 500);
+                            return;
+                        }
+                    }
+                    showMessage('로그인 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 });
+            return;
+        }
+        
+        // 3) Supabase가 없으면 로컬 DEMO_USERS만 확인
+        if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
+            var user = DEMO_USERS[email];
+            if (user.password === password) {
+                Storage.setUser({
+                    email: email,
+                    companyName: user.companyName || '',
+                    fullName: user.fullName || email,
+                    remember: remember
+                });
+                showMessage('로그인 성공!', 'success');
+                setTimeout(function() {
+                    window.location.href = (typeof isAdminUser === 'function' && isAdminUser(email)) ? 'admin.html' : 'dashboard.html';
+                }, 500);
+                return;
+            }
+            showMessage('비밀번호가 올바르지 않습니다.', 'error');
             return;
         }
         

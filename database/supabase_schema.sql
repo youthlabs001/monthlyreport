@@ -52,9 +52,9 @@ CREATE POLICY "companies_update" ON public.companies
 CREATE POLICY "companies_delete" ON public.companies
     FOR DELETE TO authenticated USING (true);
 
--- app_users: 인증된 사용자만 읽기/쓰기
+-- app_users: 익명 사용자도 읽기 가능 (로그인 전에 조회 필요), 쓰기는 인증 필요
 CREATE POLICY "app_users_select" ON public.app_users
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO anon, authenticated USING (true);
 CREATE POLICY "app_users_insert" ON public.app_users
     FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "app_users_update" ON public.app_users
