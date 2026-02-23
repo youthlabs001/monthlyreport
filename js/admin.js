@@ -371,12 +371,59 @@ function handleFileSelect(file) {
     document.getElementById('uploadBtn').disabled = false;
 }
 
+// 사용자 선택 시 회사 목록 표시
+function updateCompanySelection() {
+    const targetUser = document.getElementById('targetUserSelect').value;
+    const companySelectionArea = document.getElementById('companySelectionArea');
+    const companyCheckboxes = document.getElementById('companyCheckboxes');
+    
+    if (!targetUser) {
+        companySelectionArea.style.display = 'none';
+        companyCheckboxes.innerHTML = '';
+        return;
+    }
+    
+    // 선택된 사용자 찾기
+    const user = usersData.find(u => u.email === targetUser);
+    if (!user || !user.companies || user.companies.length === 0) {
+        companySelectionArea.style.display = 'none';
+        companyCheckboxes.innerHTML = '';
+        return;
+    }
+    
+    // 회사 체크박스 생성
+    companyCheckboxes.innerHTML = user.companies.map((companyName, index) => {
+        const company = availableCompanies.find(c => c.name === companyName);
+        const companyNumber = company ? company.number : '';
+        return `
+            <div class="company-checkbox-item">
+                <input type="checkbox" id="company_${index}" name="targetCompany" value="${companyName}" ${index === 0 ? 'checked' : ''}>
+                <label for="company_${index}">
+                    ${companyName}
+                    ${companyNumber ? `<span class="company-number">(${companyNumber})</span>` : ''}
+                </label>
+            </div>
+        `;
+    }).join('');
+    
+    companySelectionArea.style.display = 'block';
+}
+
 // 엑셀 데이터 업로드
 function uploadExcelData() {
     const targetUser = document.getElementById('targetUserSelect').value;
     
     if (!targetUser) {
         showMessage('대상 사용자를 선택해주세요.', 'error');
+        return;
+    }
+    
+    // 선택된 회사들 가져오기
+    const selectedCompanies = Array.from(document.querySelectorAll('input[name="targetCompany"]:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedCompanies.length === 0) {
+        showMessage('업로드할 회사를 최소 1개 이상 선택해주세요.', 'error');
         return;
     }
     
@@ -402,7 +449,7 @@ function uploadExcelData() {
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             
             // 데이터 검증 및 변환
-            const result = processExcelData(jsonData, targetUser);
+            const result = processExcelData(jsonData, targetUser, selectedCompanies);
             
             // 결과 표시
             displayUploadResult(result);
@@ -436,12 +483,13 @@ function uploadExcelData() {
 }
 
 // 엑셀 데이터 처리
-function processExcelData(jsonData, targetUser) {
+function processExcelData(jsonData, targetUser, selectedCompanies) {
     const result = {
         total: 0,
         success: 0,
         errors: [],
-        validTransactions: []
+        validTransactions: [],
+        companies: selectedCompanies || []
     };
     
     // 헤더 제외 (첫 행)
@@ -496,17 +544,19 @@ function processExcelData(jsonData, targetUser) {
         }
     });
     
-    // localStorage에 데이터 저장
-    if (result.validTransactions.length > 0) {
-        saveTransactionsToStorage(targetUser, result.validTransactions);
+    // localStorage에 데이터 저장 (선택된 각 회사별로)
+    if (result.validTransactions.length > 0 && selectedCompanies && selectedCompanies.length > 0) {
+        selectedCompanies.forEach(companyName => {
+            saveTransactionsToStorage(targetUser, companyName, result.validTransactions);
+        });
     }
     
     return result;
 }
 
-// localStorage에 거래 데이터 저장
-function saveTransactionsToStorage(userEmail, transactions) {
-    const storageKey = `transactions_${userEmail}`;
+// localStorage에 거래 데이터 저장 (회사별)
+function saveTransactionsToStorage(userEmail, companyName, transactions) {
+    const storageKey = `transactions_${userEmail}_${companyName}`;
     
     // 기존 데이터 가져오기
     let existingData = localStorage.getItem(storageKey);
@@ -517,6 +567,8 @@ function saveTransactionsToStorage(userEmail, transactions) {
     
     // 저장
     localStorage.setItem(storageKey, JSON.stringify(allTransactions));
+    
+    console.log(`${companyName}에 ${transactions.length}건의 거래 데이터 저장됨`);
 }
 
 // 업로드 결과 표시
@@ -528,15 +580,26 @@ function displayUploadResult(result) {
     document.getElementById('errorRows').textContent = result.errors.length;
     
     const errorDetails = document.getElementById('errorDetails');
+    
+    // 업로드된 회사 목록 표시
+    if (result.companies && result.companies.length > 0) {
+        const companyList = '<div style="margin-bottom: 16px; padding: 12px; background: #EFF6FF; border-radius: 8px;">' +
+            '<strong style="color: #1E40AF;">업로드된 회사:</strong> ' +
+            result.companies.join(', ') +
+            '</div>';
+        errorDetails.innerHTML = companyList;
+    } else {
+        errorDetails.innerHTML = '';
+    }
+    
+    // 오류 상세 추가
     if (result.errors.length > 0) {
-        errorDetails.innerHTML = '<h5 style="margin-bottom: 12px;">오류 상세:</h5>' +
+        errorDetails.innerHTML += '<h5 style="margin-bottom: 12px; margin-top: 16px;">오류 상세:</h5>' +
             result.errors.map(err => `
                 <div class="error-item">
                     <strong>행 ${err.row}:</strong> ${err.message}
                 </div>
             `).join('');
-    } else {
-        errorDetails.innerHTML = '';
     }
     
     resultDiv.style.display = 'block';

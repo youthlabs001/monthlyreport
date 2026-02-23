@@ -337,13 +337,21 @@
                     </div>
                 </div>
                 
-                <!-- 사용자 선택 -->
+                <!-- 사용자 및 회사 선택 -->
                 <div class="user-selection">
-                    <label for="targetUserSelect">등록대상 회사:</label>
-                    <select id="targetUserSelect" class="user-select">
-                        <option value="">회사를 선택하세요</option>
+                    <label for="targetUserSelect">등록대상 사용자:</label>
+                    <select id="targetUserSelect" class="user-select" onchange="updateCompanySelection()">
+                        <option value="">사용자를 선택하세요</option>
                         <!-- 동적으로 생성됨 -->
                     </select>
+                </div>
+                
+                <!-- 회사 선택 (복수 선택 가능) -->
+                <div class="company-selection" id="companySelectionArea" style="display: none; margin-top: 16px;">
+                    <label>업로드 대상 회사 (복수 선택 가능):</label>
+                    <div id="companyCheckboxes" class="company-checkboxes">
+                        <!-- 동적으로 생성됨 -->
+                    </div>
                 </div>
             </div>
         </div>
