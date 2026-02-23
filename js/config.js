@@ -172,6 +172,40 @@ const DEMO_USERS = {
                 });
             }
         }
+        
+        // 기존 사용자 데이터에 companies 필드가 없으면 usersData에서 가져와서 병합
+        const usersDataRaw = localStorage.getItem('admin_users_data');
+        if (usersDataRaw) {
+            try {
+                const usersData = JSON.parse(usersDataRaw);
+                let needsUpdate = false;
+                Object.keys(DEMO_USERS).forEach(function(email) {
+                    const demoUser = DEMO_USERS[email];
+                    // companies 필드가 없거나 배열이 아닌 경우
+                    if (!demoUser.companies || !Array.isArray(demoUser.companies)) {
+                        const userData = usersData.find(function(u) { return u.email === email; });
+                        if (userData && userData.companies && Array.isArray(userData.companies)) {
+                            DEMO_USERS[email].companies = userData.companies;
+                            DEMO_USERS[email].companyName = userData.companies[0] || '';
+                            needsUpdate = true;
+                        }
+                    }
+                });
+                // 변경사항을 demo_users_additions에도 반영
+                if (needsUpdate) {
+                    const additions = JSON.parse(localStorage.getItem('demo_users_additions') || '{}');
+                    Object.keys(additions).forEach(function(email) {
+                        if (DEMO_USERS[email] && DEMO_USERS[email].companies) {
+                            additions[email].companies = DEMO_USERS[email].companies;
+                            additions[email].companyName = DEMO_USERS[email].companyName;
+                        }
+                    });
+                    localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+                }
+            } catch (e) {
+                console.warn('사용자 데이터 병합 실패:', e);
+            }
+        }
     } catch (e) {
         console.warn('추가 계정 로드 실패:', e);
     }
