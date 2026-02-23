@@ -1159,6 +1159,7 @@ function saveUserChanges() {
                     fullName: name,
                     isAdmin: false,
                     companyName: companyName,
+                    companies: [...currentEditingUser.companies],
                     data: {
                         currentMonthRevenue: 0,
                         lastMonthRevenue: 0,
@@ -1222,6 +1223,7 @@ function saveUserChanges() {
                 fullName: name,
                 isAdmin: false,
                 companyName: companyName,
+                companies: [...currentEditingUser.companies],
                 data: typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email] && DEMO_USERS[email].data 
                     ? DEMO_USERS[email].data 
                     : {
@@ -1254,6 +1256,27 @@ function saveUserChanges() {
             status: status,
             companies: [...currentEditingUser.companies]
         };
+        
+        // DEMO_USERS에도 companies 정보 업데이트 (로그인한 사용자가 회사 목록을 올바르게 보도록)
+        if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
+            DEMO_USERS[email].companies = [...currentEditingUser.companies];
+            DEMO_USERS[email].companyName = currentEditingUser.companies.length > 0 ? currentEditingUser.companies[0] : '';
+            DEMO_USERS[email].fullName = name;
+            // localStorage의 demo_users_additions에도 업데이트
+            try {
+                const stored = localStorage.getItem('demo_users_additions') || '{}';
+                const additions = JSON.parse(stored);
+                if (additions[email]) {
+                    additions[email].companies = [...currentEditingUser.companies];
+                    additions[email].companyName = currentEditingUser.companies.length > 0 ? currentEditingUser.companies[0] : '';
+                    additions[email].fullName = name;
+                    localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+                }
+            } catch (e) {
+                console.warn('사용자 정보 저장 실패:', e);
+            }
+        }
+        
         saveUsersData();
         updateUsersTable();
         updateUserSelects();
