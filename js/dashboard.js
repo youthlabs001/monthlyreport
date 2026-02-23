@@ -214,28 +214,37 @@ function loadTransactionsFromSupabase() {
 // 거래 데이터를 월별로 집계하여 차트 업데이트
 function aggregateAndUpdateCharts(transactions) {
     console.log('[차트 업데이트] 월별 집계 시작...', transactions.length + '건');
+    console.log('[차트 업데이트] 첫 5개 거래 샘플:', transactions.slice(0, 5));
     
     // 현재 연도 및 전년도
     const currentYear = new Date().getFullYear();
     const lastYear = currentYear - 1;
     
     console.log(`[차트 업데이트] 현재 연도: ${currentYear}, 전년도: ${lastYear}`);
+    console.log(`[차트 업데이트] 현재 월: ${new Date().getMonth() + 1}, 전월: ${new Date().getMonth()}`);
     
     // 월별 데이터 집계 (연도별로 분리)
     const monthlyData = {};
     
-    transactions.forEach(function(t) {
+    transactions.forEach(function(t, idx) {
         const date = new Date(t.date);
         if (isNaN(date.getTime())) {
-            console.log('[차트 업데이트] 날짜 파싱 실패:', t.date);
+            console.log(`[차트 업데이트] 날짜 파싱 실패 [${idx}]:`, t.date);
             return;
         }
         
         const year = date.getFullYear();
         const month = date.getMonth() + 1; // 1-12
         
+        if (idx < 3) {
+            console.log(`[차트 업데이트] 거래 [${idx}] - 날짜: ${t.date}, 연도: ${year}, 월: ${month}, 금액: ${t.amount}`);
+        }
+        
         // 올해와 전년도만 집계
         if (year !== currentYear && year !== lastYear) {
+            if (idx < 3) {
+                console.log(`[차트 업데이트] 거래 [${idx}] - 연도 범위 벗어남 (건너뜀)`);
+            }
             return;
         }
         
@@ -256,8 +265,14 @@ function aggregateAndUpdateCharts(transactions) {
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonth = `${lastMonthDate.getFullYear()}-${lastMonthDate.getMonth() + 1}`;
     
+    console.log(`[차트 업데이트] 이번 달 키: ${currentMonth}`);
+    console.log(`[차트 업데이트] 전월 키: ${lastMonth}`);
+    
     const currentMonthRevenue = monthlyData[currentMonth] || 0;
     const lastMonthRevenue = monthlyData[lastMonth] || 0;
+    
+    console.log(`[차트 업데이트] 이번 달 매출: ${currentMonthRevenue}`);
+    console.log(`[차트 업데이트] 전월 매출: ${lastMonthRevenue}`);
     
     // userData 업데이트
     if (!userData.data) {
@@ -265,9 +280,8 @@ function aggregateAndUpdateCharts(transactions) {
     }
     userData.data.currentMonthRevenue = currentMonthRevenue;
     userData.data.lastMonthRevenue = lastMonthRevenue;
-    userData.data.monthlyData = monthlyData; // 차트용 원본 데이터 저장
-    
-    console.log('[차트 업데이트] 이번 달:', currentMonthRevenue, '/ 전월:', lastMonthRevenue);
+    userData.data.monthlyData = monthlyData;
+    userData.data.transactions = transactions;
     
     // 통계 업데이트
     updateStatCards();
@@ -395,65 +409,48 @@ function updateQuickStats() {
 
 // 통계 카드 업데이트
 function updateStatCards() {
-    const data = userData.data;
+    console.log('[updateStatCards] 시작');
+    console.log('[updateStatCards] userData.data:', userData.data);
     
-    // 업로드된 데이터 가져오기 (현재 회사별로)
-    const storageKey = `transactions_${currentUser.email}_${currentCompany}`;
-    const uploadedData = localStorage.getItem(storageKey);
+    const data = userData.data || {};
     
-    let uploadedRevenue = 0;
-    let uploadedCount = 0;
+    const currentMonthRevenue = data.currentMonthRevenue || 0;
+    const lastMonthRevenue = data.lastMonthRevenue || 0;
     
-    if (uploadedData) {
-        try {
-            const uploadedTransactions = JSON.parse(uploadedData);
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            
-            uploadedTransactions.forEach(t => {
-                const tDate = new Date(t.date);
-                if (tDate.getMonth() === currentMonth && 
-                    tDate.getFullYear() === currentYear && 
-                    t.status === 'completed') {
-                    uploadedRevenue += t.amount;
-                    uploadedCount++;
-                }
-            });
-            
-            console.log(`[${currentCompany}] 이번 달 업로드 매출:`, uploadedRevenue, '원,', uploadedCount, '건');
-        } catch (error) {
-            console.error('업로드 데이터 처리 오류:', error);
-        }
-    } else {
-        console.log(`[${currentCompany}] 업로드 데이터 없음 (키: ${storageKey})`);
-    }
+    console.log('[updateStatCards] 이번 달 매출:', currentMonthRevenue);
+    console.log('[updateStatCards] 전월 매출:', lastMonthRevenue);
     
-    // 전체 이번 달 매출 (기본 + 업로드)
-    const totalCurrentRevenue = data.currentMonthRevenue + uploadedRevenue;
-    document.getElementById('currentRevenue').textContent = formatCurrency(totalCurrentRevenue);
+    // 이번 달 매출 표시
+    document.getElementById('currentRevenue').textContent = formatCurrency(currentMonthRevenue);
     
     // 전월 대비 증감률
-    const revenueChange = ((totalCurrentRevenue - data.lastMonthRevenue) / data.lastMonthRevenue) * 100;
+    let revenueChange = 0;
+    if (lastMonthRevenue > 0) {
+        revenueChange = ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
+    }
+    
     const revenueChangeEl = document.getElementById('revenueChange');
     revenueChangeEl.textContent = formatPercent(Math.abs(revenueChange));
     
     const statChange = revenueChangeEl.closest('.stat-change');
     if (revenueChange > 0) {
+        statChange.classList.remove('negative');
         statChange.classList.add('positive');
         statChange.querySelector('.arrow').textContent = '↑';
     } else {
+        statChange.classList.remove('positive');
         statChange.classList.add('negative');
         statChange.querySelector('.arrow').textContent = '↓';
     }
     
     // 전월 매출
-    document.getElementById('lastRevenue').textContent = formatCurrency(data.lastMonthRevenue);
+    document.getElementById('lastRevenue').textContent = formatCurrency(lastMonthRevenue);
     
-    // 평균 거래액 (전체 거래 건수로 계산)
-    const totalTransactions = data.transactions.length + uploadedCount;
-    const avgTransaction = totalCurrentRevenue / totalTransactions;
+    // 평균 거래액 (이번 달 기준)
+    const avgTransaction = currentMonthRevenue > 0 && data.transactions ? currentMonthRevenue / data.transactions.length : 0;
     document.getElementById('avgTransaction').textContent = formatCurrency(Math.round(avgTransaction));
+    
+    console.log('[updateStatCards] 완료');
 }
 
 // 월별 매출 추이 차트 (관리자 화면과 동일)
