@@ -526,6 +526,10 @@ function createRevenueChart(monthlyData, currentYear, lastYear) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'point',
+                intersect: true
+            },
             plugins: {
                 legend: {
                     display: true,
@@ -551,6 +555,31 @@ function createRevenueChart(monthlyData, currentYear, lastYear) {
                         callback: function(value) {
                             return formatCurrency(value);
                         }
+                    }
+                }
+            },
+            onClick: function(event, elements) {
+                console.log('[차트 클릭] elements:', elements);
+                
+                if (elements.length > 0) {
+                    const element = elements[0];
+                    const datasetIndex = element.datasetIndex;
+                    const monthIndex = element.index;
+                    
+                    console.log('[차트 클릭] 데이터셋:', datasetIndex, '월:', monthIndex + 1);
+                    
+                    // 2026년 데이터 클릭 시만 상세 보기
+                    if (datasetIndex === 0) {
+                        const year = currentYear;
+                        const month = monthIndex + 1;
+                        const key = `${year}-${month}`;
+                        const revenue = monthlyData[key] || 0;
+                        
+                        console.log('[차트 클릭] 상세 보기:', year, '년', month, '월, 매출:', revenue);
+                        
+                        showRevenueDetailModal(year, month, revenue);
+                    } else {
+                        showNotification('2026년 데이터의 점을 클릭하면 상세 내역을 볼 수 있습니다.', 'info');
                     }
                 }
             }
@@ -661,62 +690,100 @@ function setupEventListeners() {
 }
 
 // 매출 상세 모달 표시
-function showRevenueDetailModal(monthData, index) {
+function showRevenueDetailModal(year, month, revenue) {
+    console.log('[모달] 상세 내역 표시:', year, '년', month, '월, 매출:', revenue);
+    
     const modal = document.getElementById('revenueModal');
-    const data = userData.data;
+    if (!modal) {
+        console.error('[모달] revenueModal을 찾을 수 없습니다');
+        return;
+    }
+    
+    const monthlyData = userData.data?.monthlyData || {};
     
     // 모달 타이틀 및 기간 설정
     document.getElementById('modalTitle').textContent = '매출 상세 내역';
-    document.getElementById('modalPeriod').textContent = formatMonthKo(monthData.month);
+    document.getElementById('modalPeriod').textContent = `${year}년 ${month}월`;
     
     // 총 매출
-    document.getElementById('modalTotalRevenue').textContent = formatCurrency(monthData.revenue);
+    document.getElementById('modalTotalRevenue').textContent = formatCurrency(revenue);
     
     // 전월 대비 변화
-    if (index > 0) {
-        const prevRevenue = data.monthlyRevenue[index - 1].revenue;
-        const change = ((monthData.revenue - prevRevenue) / prevRevenue) * 100;
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevKey = `${prevYear}-${prevMonth}`;
+    const prevRevenue = monthlyData[prevKey] || 0;
+    
+    if (prevRevenue > 0) {
+        const change = ((revenue - prevRevenue) / prevRevenue) * 100;
         const changeEl = document.getElementById('modalChange');
         if (change > 0) {
             changeEl.innerHTML = `<span style="color: #10B981">▲ ${formatPercent(change)}</span>`;
-        } else {
+        } else if (change < 0) {
             changeEl.innerHTML = `<span style="color: #EF4444">▼ ${formatPercent(Math.abs(change))}</span>`;
+        } else {
+            changeEl.textContent = '0%';
         }
     } else {
         document.getElementById('modalChange').textContent = '-';
     }
     
-    // 거래 건수 (예시로 랜덤 생성)
-    const transactionCount = Math.floor(Math.random() * 30) + 20;
-    document.getElementById('modalTransactionCount').textContent = transactionCount + '건';
+    // 거래 건수 계산 (실제 데이터에서)
+    const transactions = userData.data?.transactions || [];
+    const monthTransactions = transactions.filter(function(t) {
+        const tDate = new Date(t.date);
+        return tDate.getFullYear() === year && (tDate.getMonth() + 1) === month;
+    });
     
-    // 카테고리별 매출
-    renderCategoryBreakdown(monthData.revenue);
+    document.getElementById('modalTransactionCount').textContent = monthTransactions.length + '건';
+    console.log('[모달] 해당 월 거래 건수:', monthTransactions.length);
+    
+    // 카테고리별 매출 (실제 데이터에서 집계)
+    const categoryData = {};
+    monthTransactions.forEach(function(t) {
+        const cat = t.category || '기타';
+        if (!categoryData[cat]) {
+            categoryData[cat] = 0;
+        }
+        categoryData[cat] += t.amount;
+    });
+    
+    renderCategoryBreakdown(categoryData);
     
     // 전월 비교 차트
-    if (index > 0) {
-        const prevMonthData = data.monthlyRevenue[index - 1];
-        renderMonthComparisonChart(monthData, prevMonthData);
-    }
+    renderMonthComparisonChart(revenue, prevRevenue, month, prevMonth);
     
     // 전년 동월 비교 차트
-    if (index < data.lastYearRevenue.length) {
-        renderComparisonChart(monthData, data.lastYearRevenue[index]);
-    }
+    const lastYearKey = `${year - 1}-${month}`;
+    const lastYearRevenue = monthlyData[lastYearKey] || 0;
+    renderComparisonChart(revenue, lastYearRevenue, year, month);
     
     // 모달 표시
     modal.classList.add('active');
+    console.log('[모달] 표시 완료');
 }
 
 // 카테고리별 매출 렌더링
-function renderCategoryBreakdown(totalRevenue) {
+function renderCategoryBreakdown(categoryData) {
     const container = document.getElementById('modalCategoryBreakdown');
-    const categories = userData.data.categories;
     
-    const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444'];
+    const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
     
-    // 총 매출 대비 비율 계산
+    // 카테고리를 배열로 변환
+    const categories = Object.keys(categoryData).map(function(name) {
+        return { name: name, amount: categoryData[name] };
+    });
+    
+    // 금액 순으로 정렬
+    categories.sort(function(a, b) { return b.amount - a.amount; });
+    
+    // 총 매출
     const total = categories.reduce((sum, cat) => sum + cat.amount, 0);
+    
+    if (total === 0 || categories.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #9CA3AF; padding: 20px;">카테고리별 데이터가 없습니다</div>';
+        return;
+    }
     
     container.innerHTML = categories.map((cat, index) => {
         const percentage = ((cat.amount / total) * 100).toFixed(1);
@@ -724,13 +791,13 @@ function renderCategoryBreakdown(totalRevenue) {
             <div class="category-item">
                 <div class="category-name">
                     <span>
-                        <span class="category-dot" style="background: ${colors[index]}"></span>
+                        <span class="category-dot" style="background: ${colors[index % colors.length]}"></span>
                         ${cat.name}
                     </span>
                     <span class="category-amount">${formatCurrency(cat.amount)}</span>
                 </div>
                 <div class="category-bar-container">
-                    <div class="category-bar" style="width: ${percentage}%; background: linear-gradient(90deg, ${colors[index]} 0%, ${colors[index]}dd 100%);">
+                    <div class="category-bar" style="width: ${percentage}%; background: linear-gradient(90deg, ${colors[index % colors.length]} 0%, ${colors[index % colors.length]}dd 100%);">
                         <span class="category-percentage">${percentage}%</span>
                     </div>
                 </div>
@@ -740,25 +807,26 @@ function renderCategoryBreakdown(totalRevenue) {
 }
 
 // 전년 동월 비교 차트 렌더링
-function renderComparisonChart(currentYear, lastYear) {
+function renderComparisonChart(currentRevenue, lastYearRevenue, year, month) {
     const ctx = document.getElementById('modalComparisonChart');
+    if (!ctx) return;
     
     // 기존 차트가 있으면 제거
     if (charts.comparison) {
         charts.comparison.destroy();
     }
     
-    const growthRate = ((currentYear.revenue - lastYear.revenue) / lastYear.revenue * 100).toFixed(1);
+    const growthRate = lastYearRevenue > 0 ? ((currentRevenue - lastYearRevenue) / lastYearRevenue * 100).toFixed(1) : 0;
     
     charts.comparison = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['2025년', '2026년'],
+            labels: [`${year - 1}년 ${month}월`, `${year}년 ${month}월`],
             datasets: [{
                 label: '매출',
                 data: [
-                    lastYear.revenue / 1000000,
-                    currentYear.revenue / 1000000
+                    lastYearRevenue,
+                    currentRevenue
                 ],
                 backgroundColor: [
                     'rgba(16, 185, 129, 0.8)',
@@ -804,7 +872,7 @@ function renderComparisonChart(currentYear, lastYear) {
                     },
                     callbacks: {
                         label: function(context) {
-                            return '매출: ' + formatCurrency(context.parsed.y * 1000000);
+                            return '매출: ' + formatCurrency(context.parsed.y);
                         }
                     }
                 }
@@ -820,7 +888,7 @@ function renderComparisonChart(currentYear, lastYear) {
                             size: 12
                         },
                         callback: function(value) {
-                            return '₩' + value + 'M';
+                            return formatCurrency(value);
                         }
                     }
                 },
@@ -841,17 +909,18 @@ function renderComparisonChart(currentYear, lastYear) {
 }
 
 // 전월 비교 차트 렌더링
-function renderMonthComparisonChart(currentMonth, prevMonth) {
+function renderMonthComparisonChart(currentRevenue, prevRevenue, currentMonth, prevMonth) {
     const ctx = document.getElementById('modalMonthComparisonChart');
+    if (!ctx) return;
     
     // 기존 차트가 있으면 제거
     if (charts.monthComparison) {
         charts.monthComparison.destroy();
     }
     
-    const growthRate = ((currentMonth.revenue - prevMonth.revenue) / prevMonth.revenue * 100).toFixed(1);
-    const currentMonthLabel = formatMonthKo(currentMonth.month);
-    const prevMonthLabel = formatMonthKo(prevMonth.month);
+    const growthRate = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue * 100).toFixed(1) : 0;
+    const currentMonthLabel = `${currentMonth}월`;
+    const prevMonthLabel = `${prevMonth}월`;
     
     charts.monthComparison = new Chart(ctx, {
         type: 'bar',
@@ -860,8 +929,8 @@ function renderMonthComparisonChart(currentMonth, prevMonth) {
             datasets: [{
                 label: '매출',
                 data: [
-                    prevMonth.revenue / 1000000,
-                    currentMonth.revenue / 1000000
+                    prevRevenue,
+                    currentRevenue
                 ],
                 backgroundColor: [
                     'rgba(99, 102, 241, 0.8)',
@@ -907,7 +976,7 @@ function renderMonthComparisonChart(currentMonth, prevMonth) {
                     },
                     callbacks: {
                         label: function(context) {
-                            return '매출: ' + formatCurrency(context.parsed.y * 1000000);
+                            return '매출: ' + formatCurrency(context.parsed.y);
                         }
                     }
                 }
@@ -923,7 +992,7 @@ function renderMonthComparisonChart(currentMonth, prevMonth) {
                             size: 11
                         },
                         callback: function(value) {
-                            return '₩' + value + 'M';
+                            return formatCurrency(value);
                         }
                     }
                 },
