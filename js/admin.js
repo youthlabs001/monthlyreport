@@ -1073,6 +1073,8 @@ function saveSheetsDataToSupabase() {
     
     // Supabase DB에 저장
     if (typeof supabase !== 'undefined' && supabase) {
+        console.log(`[Supabase] ${transactions.length}건 저장 시작...`);
+        
         const rows = transactions.map(function(t) {
             return {
                 user_email: userEmail,
@@ -1086,10 +1088,14 @@ function saveSheetsDataToSupabase() {
             };
         });
         
+        console.log('[Supabase] 저장할 데이터 샘플:', rows[0]);
+        
         supabase.from('transactions').insert(rows).then(function(result) {
+            console.log('[Supabase] 저장 응답:', result);
+            
             if (result.error) {
                 console.error('[Supabase] 거래 데이터 저장 실패:', result.error);
-                showMessage('Supabase 저장 실패: ' + result.error.message, 'error');
+                showMessage('❌ Supabase 저장 실패: ' + result.error.message + '\n\n💡 Supabase에서 transactions 테이블을 생성하셨나요?', 'error');
             } else {
                 console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
                 showMessage(`✅ Supabase DB에 ${transactions.length}건 저장 완료!`, 'success');
@@ -1101,11 +1107,11 @@ function saveSheetsDataToSupabase() {
             }
         }).catch(function(e) {
             console.error('[Supabase] 거래 데이터 저장 오류:', e);
-            showMessage('Supabase 저장 오류: ' + (e.message || e), 'error');
+            showMessage('❌ Supabase 저장 오류: ' + (e.message || e), 'error');
         });
     } else {
         console.warn('[Supabase] 연결 안 됨, localStorage만 저장');
-        showMessage('localStorage에만 저장됨 (Supabase 미연결)', 'info');
+        showMessage('⚠️ localStorage에만 저장됨 (Supabase 미연결)\n\n브라우저 콘솔(F12)을 확인하세요.', 'error');
     }
 }
 
