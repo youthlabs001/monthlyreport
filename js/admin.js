@@ -805,7 +805,7 @@ async function fetchGoogleSheetsData() {
     }
 }
 
-// CSV 파싱 함수 (개선된 버전)
+// CSV 파싱 함수 (개선된 버전 - 다양한 형식 지원)
 function parseCSV(csvText) {
     const lines = csvText.trim().split(/\r?\n/);
     const transactions = [];
@@ -813,9 +813,16 @@ function parseCSV(csvText) {
     console.log('[CSV 파싱] 총 라인 수:', lines.length);
     
     // 헤더 확인
-    if (lines.length > 0) {
-        console.log('[CSV 파싱] 헤더:', lines[0]);
-    }
+    if (lines.length === 0) return transactions;
+    
+    const header = lines[0].toLowerCase();
+    console.log('[CSV 파싱] 헤더:', lines[0]);
+    
+    // 데이터 형식 자동 감지
+    const isFormat1 = header.includes('매출월') && header.includes('매출액'); // 3컬럼 형식
+    const isFormat2 = header.includes('날짜') && header.includes('거래처'); // 6컬럼 형식
+    
+    console.log('[CSV 파싱] 형식 감지:', isFormat1 ? '3컬럼(매출월,매출액,매출종류)' : isFormat2 ? '6컬럼(날짜,거래처,매출종류,금액)' : '알 수 없음');
     
     // 헤더 제외 (첫 행)
     for (let i = 1; i < lines.length; i++) {
@@ -844,30 +851,56 @@ function parseCSV(csvText) {
         // 따옴표 제거
         const cleanValues = values.map(v => v.replace(/^"|"$/g, '').trim());
         
-        if (cleanValues.length < 4) {
-            console.log(`[CSV 파싱] 행 ${i}: 컬럼 부족 (${cleanValues.length}개)`, cleanValues);
-            continue;
+        let transaction = null;
+        
+        // 형식 1: 매출월, 매출액, 매출종류 (3컬럼)
+        if (isFormat1 && cleanValues.length >= 3) {
+            // 날짜 형식 변환: 20250131 → 2025-01-31
+            const dateStr = cleanValues[0];
+            let formattedDate = dateStr;
+            if (dateStr.length === 8) {
+                formattedDate = `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}`;
+            }
+            
+            // 금액 파싱 (쉼표 제거)
+            const amountStr = cleanValues[1].replace(/[,\s]/g, '');
+            const amount = parseFloat(amountStr);
+            
+            transaction = {
+                date: formattedDate,
+                client: cleanValues[2] || '매출', // 매출종류를 거래처로 사용
+                category: cleanValues[2] || '기타',
+                amount: isNaN(amount) ? 0 : amount,
+                status: 'completed',
+                note: ''
+            };
+        }
+        // 형식 2: 날짜, 거래처, 매출종류, 금액, 상태, 비고 (4-6컬럼)
+        else if (cleanValues.length >= 4) {
+            // 금액 파싱 (쉼표, 공백 등 제거)
+            const amountStr = cleanValues[3].replace(/[,\s]/g, '');
+            const amount = parseFloat(amountStr);
+            
+            transaction = {
+                date: cleanValues[0],
+                client: cleanValues[1],
+                category: cleanValues[2],
+                amount: isNaN(amount) ? 0 : amount,
+                status: cleanValues[4] || 'completed',
+                note: cleanValues[5] || ''
+            };
         }
         
-        // 금액 파싱 (쉼표, 공백 등 제거)
-        const amountStr = cleanValues[3].replace(/[,\s]/g, '');
-        const amount = parseFloat(amountStr);
-        
-        const transaction = {
-            date: cleanValues[0],
-            client: cleanValues[1],
-            category: cleanValues[2],
-            amount: isNaN(amount) ? 0 : amount,
-            status: cleanValues[4] || 'completed',
-            note: cleanValues[5] || ''
-        };
-        
         // 유효성 검사
-        if (transaction.date && transaction.client && transaction.category && transaction.amount >= 0) {
+        if (transaction && transaction.date && transaction.amount >= 0) {
             transactions.push(transaction);
-            console.log(`[CSV 파싱] 행 ${i} 성공:`, transaction);
+            if (i <= 5) { // 처음 5개만 로그 출력
+                console.log(`[CSV 파싱] 행 ${i} 성공:`, transaction);
+            }
         } else {
-            console.log(`[CSV 파싱] 행 ${i} 유효성 실패:`, transaction);
+            if (i <= 5) {
+                console.log(`[CSV 파싱] 행 ${i} 유효성 실패:`, cleanValues);
+            }
         }
     }
     
