@@ -121,7 +121,7 @@ function loadTransactionsFromSupabase() {
     if (typeof supabase === 'undefined' || !supabase) {
         console.log('[Supabase] 연결 안 됨, localStorage만 사용');
         updateStatCards();
-        updateCharts();
+        // 차트는 DOMContentLoaded에서 이미 생성됨
         return;
     }
     
@@ -159,14 +159,12 @@ function loadTransactionsFromSupabase() {
                 console.log(`[Supabase] ${currentCompany}의 거래 데이터 없음`);
                 // Supabase에 데이터 없으면 기본 차트 표시
                 updateStatCards();
-                updateCharts();
             }
         })
         .catch(function(err) {
             console.error('[Supabase] 거래 데이터 로드 실패:', err);
             // 에러 시 기본 차트 표시
             updateStatCards();
-            updateCharts();
         });
 }
 
@@ -219,11 +217,22 @@ function aggregateAndUpdateCharts(transactions) {
         console.log('[차트 업데이트] 이번 달:', userData.data.currentMonthRevenue, '/ 전월:', userData.data.lastMonthRevenue);
     }
     
-    // 차트 및 통계 업데이트
+    // 통계 업데이트
     updateStatCards();
-    updateCharts();
+    
+    // 차트 다시 그리기
+    destroyAllCharts();
+    createRevenueChart();
     
     console.log('[차트 업데이트] 완료!');
+}
+
+// 모든 차트 제거
+function destroyAllCharts() {
+    if (charts.revenue) {
+        charts.revenue.destroy();
+        charts.revenue = null;
+    }
 }
 
 // 회사 전환

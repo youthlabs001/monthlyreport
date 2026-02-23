@@ -204,16 +204,25 @@
             });
         }
         
-        // Supabase 초기화
+        // Supabase 초기화 완료 후 dashboard.js 로드
         loadSupabaseCDN().then(function() {
             if (window.supabase && window.supabase.createClient) {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 console.log('✅ Supabase 초기화 완료');
+                
+                // dashboard.js 동적 로드
+                var dashboardScript = document.createElement('script');
+                dashboardScript.src = 'js/dashboard.js';
+                document.body.appendChild(dashboardScript);
+                console.log('✅ dashboard.js 로드 시작');
             }
         }).catch(function(err) {
             console.error('❌ Supabase CDN 로드 실패:', err);
+            // 실패해도 dashboard.js는 로드 (localStorage 사용)
+            var dashboardScript = document.createElement('script');
+            dashboardScript.src = 'js/dashboard.js';
+            document.body.appendChild(dashboardScript);
         });
     </script>
-    <script src="js/dashboard.js"></script>
 </body>
 </html>
