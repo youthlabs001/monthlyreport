@@ -121,9 +121,10 @@ function loadCompanyData() {
 // Supabase에서 거래 데이터 로드
 function loadTransactionsFromSupabase() {
     if (typeof supabase === 'undefined' || !supabase) {
-        console.log('[Supabase] 연결 안 됨, localStorage만 사용');
-        updateStatCards();
-        createRevenueChart(); // 빈 차트라도 표시
+        console.warn('[Supabase] 연결 안 됨, localStorage만 사용');
+        // 빈 차트 표시
+        destroyAllCharts();
+        createRevenueChart({}, new Date().getFullYear(), new Date().getFullYear() - 1);
         return;
     }
     
@@ -139,8 +140,8 @@ function loadTransactionsFromSupabase() {
             
             if (result.error) {
                 console.error('[Supabase] 조회 에러:', result.error);
-                updateStatCards();
-                createRevenueChart(); // 빈 차트라도 표시
+                destroyAllCharts();
+                createRevenueChart({}, new Date().getFullYear(), new Date().getFullYear() - 1);
                 return;
             }
             
@@ -169,15 +170,15 @@ function loadTransactionsFromSupabase() {
             } else {
                 console.log(`[Supabase] ${currentCompany}의 거래 데이터 없음 (0건)`);
                 // Supabase에 데이터 없으면 빈 차트 표시
-                updateStatCards();
-                createRevenueChart(); // 빈 차트라도 표시
+                destroyAllCharts();
+                createRevenueChart({}, new Date().getFullYear(), new Date().getFullYear() - 1);
             }
         })
         .catch(function(err) {
             console.error('[Supabase] 거래 데이터 로드 실패:', err);
             // 에러 시 빈 차트 표시
-            updateStatCards();
-            createRevenueChart(); // 빈 차트라도 표시
+            destroyAllCharts();
+            createRevenueChart({}, new Date().getFullYear(), new Date().getFullYear() - 1);
         });
 }
 
@@ -287,8 +288,7 @@ function initDashboard() {
     // 통계 카드 업데이트
     updateStatCards();
     
-    // 차트 생성
-    createRevenueChart();
+    // 차트는 데이터 로드 완료 후 생성 (initDashboard에서는 생성 안 함)
 }
 
 // 관리자에서 등록한 공지사항 표시
