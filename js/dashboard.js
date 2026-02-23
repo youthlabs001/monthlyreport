@@ -213,8 +213,8 @@ function updateQuickStats() {
 function updateStatCards() {
     const data = userData.data;
     
-    // 업로드된 데이터 가져오기
-    const storageKey = `transactions_${currentUser.email}`;
+    // 업로드된 데이터 가져오기 (현재 회사별로)
+    const storageKey = `transactions_${currentUser.email}_${currentCompany}`;
     const uploadedData = localStorage.getItem(storageKey);
     
     let uploadedRevenue = 0;
@@ -236,9 +236,13 @@ function updateStatCards() {
                     uploadedCount++;
                 }
             });
+            
+            console.log(`[${currentCompany}] 이번 달 업로드 매출:`, uploadedRevenue, '원,', uploadedCount, '건');
         } catch (error) {
             console.error('업로드 데이터 처리 오류:', error);
         }
+    } else {
+        console.log(`[${currentCompany}] 업로드 데이터 없음 (키: ${storageKey})`);
     }
     
     // 전체 이번 달 매출 (기본 + 업로드)
