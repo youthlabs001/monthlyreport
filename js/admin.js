@@ -964,7 +964,11 @@ function openAddUserModal() {
     document.getElementById('editUserEmail').value = '';
     document.getElementById('editUserEmail').removeAttribute('readonly');
     document.getElementById('editUserPassword').value = '';
-    document.getElementById('editUserPasswordGroup').style.display = 'block';
+    document.getElementById('editUserPassword').placeholder = '8자 이상';
+    const passwordHelp = document.getElementById('passwordHelp');
+    if (passwordHelp) passwordHelp.textContent = '로그인 가능한 계정으로 생성하려면 비밀번호를 입력하세요.';
+    const passwordReqMark = document.getElementById('passwordRequiredMark');
+    if (passwordReqMark) passwordReqMark.style.display = 'none';
     document.getElementById('editUserStatus').value = '활성';
     renderUserCompanies();
     populateCompanySelect();
@@ -991,7 +995,12 @@ function openEditUserModal(email, userId) {
     document.getElementById('editUserName').value = user.name;
     document.getElementById('editUserEmail').value = user.email;
     document.getElementById('editUserEmail').setAttribute('readonly', 'readonly');
-    document.getElementById('editUserPasswordGroup').style.display = 'none';
+    document.getElementById('editUserPassword').value = '';
+    document.getElementById('editUserPassword').placeholder = '변경 시에만 입력 (8자 이상)';
+    const passwordHelp = document.getElementById('passwordHelp');
+    if (passwordHelp) passwordHelp.textContent = '변경하지 않으려면 비워두세요.';
+    const passwordReqMark = document.getElementById('passwordRequiredMark');
+    if (passwordReqMark) passwordReqMark.style.display = 'none';
     document.getElementById('editUserStatus').value = user.status;
     
     // 회사 목록 표시
@@ -1199,6 +1208,46 @@ function saveUserChanges() {
     // 수정 모드
     const userIndex = usersData.findIndex(u => u.id === currentEditingUser.id);
     if (userIndex !== -1) {
+        const password = document.getElementById('editUserPassword').value;
+        if (password && password.length > 0 && password.length < 8) {
+            alert('비밀번호는 8자 이상이어야 합니다.');
+            return;
+        }
+        
+        // 비밀번호 변경 시 DEMO_USERS에 반영
+        if (password && password.length >= 8) {
+            const companyName = currentEditingUser.companies.length > 0 ? currentEditingUser.companies[0] : '';
+            const authUser = {
+                password: password,
+                fullName: name,
+                isAdmin: false,
+                companyName: companyName,
+                data: typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email] && DEMO_USERS[email].data 
+                    ? DEMO_USERS[email].data 
+                    : {
+                        currentMonthRevenue: 0,
+                        lastMonthRevenue: 0,
+                        monthlyRevenue: [],
+                        lastYearRevenue: [],
+                        categories: [],
+                        weeklyData: [],
+                        quarterlyGrowth: [],
+                        transactions: []
+                    }
+            };
+            if (typeof DEMO_USERS !== 'undefined') {
+                DEMO_USERS[email] = authUser;
+                try {
+                    const stored = localStorage.getItem('demo_users_additions') || '{}';
+                    const additions = JSON.parse(stored);
+                    additions[email] = authUser;
+                    localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+                } catch (e) {
+                    console.warn('비밀번호 저장 실패:', e);
+                }
+            }
+        }
+        
         usersData[userIndex] = {
             ...usersData[userIndex],
             name: name,
@@ -1210,7 +1259,10 @@ function saveUserChanges() {
         updateUserSelects();
         updateCompaniesTable();
         updateStats();
-        showMessage(`${name} 사용자 정보가 업데이트되었습니다.`, 'success');
+        const msg = password && password.length >= 8
+            ? `${name} 사용자 정보가 업데이트되었습니다. 비밀번호도 변경되었습니다.`
+            : `${name} 사용자 정보가 업데이트되었습니다.`;
+        showMessage(msg, 'success');
         addActivityLog(`${name} 사용자 정보를 수정했습니다`);
         closeEditUserModal();
     }
