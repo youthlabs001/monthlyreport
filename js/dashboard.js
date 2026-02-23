@@ -111,6 +111,50 @@ function loadCompanyData() {
     
     // 선택한 회사 저장
     Storage.setSelectedCompany(currentUser.email, currentCompany);
+    
+    // Supabase에서 거래 데이터 로드
+    loadTransactionsFromSupabase();
+}
+
+// Supabase에서 거래 데이터 로드
+function loadTransactionsFromSupabase() {
+    if (typeof supabase === 'undefined' || !supabase) {
+        console.log('[Supabase] 연결 안 됨, localStorage만 사용');
+        return;
+    }
+    
+    supabase.from('transactions')
+        .select('*')
+        .eq('user_email', currentUser.email)
+        .eq('company_name', currentCompany)
+        .then(function(result) {
+            if (result.data && result.data.length > 0) {
+                console.log(`[Supabase] ${currentCompany}의 거래 데이터 ${result.data.length}건 로드됨`);
+                
+                // Supabase 데이터를 localStorage에 캐시
+                const storageKey = `transactions_${currentUser.email}_${currentCompany}`;
+                const transactions = result.data.map(function(row) {
+                    return {
+                        date: row.transaction_date,
+                        client: row.client,
+                        category: row.category,
+                        amount: row.amount,
+                        status: row.status,
+                        note: row.note
+                    };
+                });
+                localStorage.setItem(storageKey, JSON.stringify(transactions));
+                
+                // 차트 및 통계 업데이트
+                updateStatCards();
+                updateCharts();
+            } else {
+                console.log(`[Supabase] ${currentCompany}의 거래 데이터 없음`);
+            }
+        })
+        .catch(function(err) {
+            console.error('[Supabase] 거래 데이터 로드 실패:', err);
+        });
 }
 
 // 회사 전환

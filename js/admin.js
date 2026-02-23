@@ -554,21 +554,48 @@ function processExcelData(jsonData, targetUser, selectedCompanies) {
     return result;
 }
 
-// localStorage에 거래 데이터 저장 (회사별)
+// localStorage 및 Supabase DB에 거래 데이터 저장 (회사별)
 function saveTransactionsToStorage(userEmail, companyName, transactions) {
     const storageKey = `transactions_${userEmail}_${companyName}`;
     
-    // 기존 데이터 가져오기
+    // 1) localStorage에 저장 (캐시용)
     let existingData = localStorage.getItem(storageKey);
     let allTransactions = existingData ? JSON.parse(existingData) : [];
-    
-    // 새 데이터 추가
     allTransactions = [...allTransactions, ...transactions];
-    
-    // 저장
     localStorage.setItem(storageKey, JSON.stringify(allTransactions));
     
-    console.log(`${companyName}에 ${transactions.length}건의 거래 데이터 저장됨`);
+    console.log(`[localStorage] ${companyName}에 ${transactions.length}건 저장됨`);
+    
+    // 2) Supabase DB에 저장
+    if (typeof supabase !== 'undefined' && supabase) {
+        supabase.auth.getSession().then(function(sessionRes) {
+            // 인증 여부 확인 (익명도 허용하도록 수정)
+            const rows = transactions.map(function(t) {
+                return {
+                    user_email: userEmail,
+                    company_name: companyName,
+                    transaction_date: t.date,
+                    client: t.client,
+                    category: t.category,
+                    amount: t.amount,
+                    status: t.status || 'completed',
+                    note: t.note || ''
+                };
+            });
+            
+            supabase.from('transactions').insert(rows).then(function(result) {
+                if (result.error) {
+                    console.error('[Supabase] 거래 데이터 저장 실패:', result.error.message);
+                } else {
+                    console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
+                }
+            }).catch(function(e) {
+                console.error('[Supabase] 거래 데이터 저장 오류:', e);
+            });
+        }).catch(function(e) {
+            console.warn('[Supabase] 세션 확인 실패, 로컬만 저장:', e);
+        });
+    }
 }
 
 // 업로드 결과 표시
