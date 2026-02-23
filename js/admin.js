@@ -1051,7 +1051,7 @@ function updateSheetsStats(transactions) {
     document.getElementById('sheetsStatLastYear').textContent = formatCurrency(lastYearTotal);
 }
 
-// Supabase에 데이터 저장
+// Supabase에 데이터 저장 (기존 데이터 삭제 후 재등록)
 function saveSheetsDataToSupabase() {
     if (!sheetsPreviewData || !sheetsPreviewData.transactions || sheetsPreviewData.transactions.length === 0) {
         showMessage('저장할 데이터가 없습니다.', 'error');
@@ -1060,57 +1060,82 @@ function saveSheetsDataToSupabase() {
     
     const { userEmail, companyName, transactions } = sheetsPreviewData;
     
-    showMessage('Supabase에 저장 중...', 'info');
-    
-    // localStorage에 저장
-    const storageKey = `transactions_${userEmail}_${companyName}`;
-    let existingData = localStorage.getItem(storageKey);
-    let allTransactions = existingData ? JSON.parse(existingData) : [];
-    allTransactions = [...allTransactions, ...transactions];
-    localStorage.setItem(storageKey, JSON.stringify(allTransactions));
-    
-    console.log(`[localStorage] ${companyName}에 ${transactions.length}건 저장됨`);
+    showMessage('기존 데이터 삭제 중...', 'info');
     
     // Supabase DB에 저장
     if (typeof supabase !== 'undefined' && supabase) {
-        console.log(`[Supabase] ${transactions.length}건 저장 시작...`);
+        console.log(`[Supabase] ${companyName}의 기존 데이터 삭제 시작...`);
         
-        const rows = transactions.map(function(t) {
-            return {
-                user_email: userEmail,
-                company_name: companyName,
-                transaction_date: t.date,
-                client: t.client,
-                category: t.category,
-                amount: t.amount,
-                status: t.status || 'completed',
-                note: t.note || ''
-            };
-        });
-        
-        console.log('[Supabase] 저장할 데이터 샘플:', rows[0]);
-        
-        supabase.from('transactions').insert(rows).then(function(result) {
-            console.log('[Supabase] 저장 응답:', result);
-            
-            if (result.error) {
-                console.error('[Supabase] 거래 데이터 저장 실패:', result.error);
-                showMessage('❌ Supabase 저장 실패: ' + result.error.message + '\n\n💡 Supabase에서 transactions 테이블을 생성하셨나요?', 'error');
-            } else {
-                console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
-                showMessage(`✅ Supabase DB에 ${transactions.length}건 저장 완료!`, 'success');
+        // 1단계: 기존 데이터 삭제
+        supabase.from('transactions')
+            .delete()
+            .eq('user_email', userEmail)
+            .eq('company_name', companyName)
+            .then(function(deleteResult) {
+                console.log('[Supabase] 기존 데이터 삭제 결과:', deleteResult);
                 
-                // 성공 후 초기화
-                document.getElementById('sheetsUrl').value = '';
-                document.getElementById('sheetsPreviewSection').style.display = 'none';
-                sheetsPreviewData = [];
-            }
-        }).catch(function(e) {
-            console.error('[Supabase] 거래 데이터 저장 오류:', e);
-            showMessage('❌ Supabase 저장 오류: ' + (e.message || e), 'error');
-        });
+                if (deleteResult.error) {
+                    console.error('[Supabase] 삭제 실패:', deleteResult.error);
+                    showMessage('❌ 기존 데이터 삭제 실패: ' + deleteResult.error.message, 'error');
+                    return;
+                }
+                
+                console.log(`[Supabase] 기존 데이터 삭제 완료`);
+                showMessage('새로운 데이터 저장 중...', 'info');
+                
+                // 2단계: 새 데이터 저장
+                const rows = transactions.map(function(t) {
+                    return {
+                        user_email: userEmail,
+                        company_name: companyName,
+                        transaction_date: t.date,
+                        client: t.client,
+                        category: t.category,
+                        amount: t.amount,
+                        status: t.status || 'completed',
+                        note: t.note || ''
+                    };
+                });
+                
+                console.log('[Supabase] 저장할 데이터 샘플:', rows[0]);
+                console.log(`[Supabase] 총 ${rows.length}건 저장 시작...`);
+                
+                supabase.from('transactions').insert(rows).then(function(result) {
+                    console.log('[Supabase] 저장 응답:', result);
+                    
+                    if (result.error) {
+                        console.error('[Supabase] 거래 데이터 저장 실패:', result.error);
+                        showMessage('❌ Supabase 저장 실패: ' + result.error.message, 'error');
+                    } else {
+                        console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
+                        
+                        // localStorage도 업데이트 (덮어쓰기)
+                        const storageKey = `transactions_${userEmail}_${companyName}`;
+                        localStorage.setItem(storageKey, JSON.stringify(transactions));
+                        console.log(`[localStorage] ${storageKey}에 ${transactions.length}건 덮어쓰기 완료`);
+                        
+                        showMessage(`✅ Supabase DB에 ${transactions.length}건 저장 완료!\n\n이전 데이터는 삭제되었습니다.`, 'success');
+                        
+                        // 성공 후 초기화
+                        document.getElementById('sheetsUrl').value = '';
+                        document.getElementById('sheetsPreviewSection').style.display = 'none';
+                        sheetsPreviewData = [];
+                    }
+                }).catch(function(e) {
+                    console.error('[Supabase] 거래 데이터 저장 오류:', e);
+                    showMessage('❌ Supabase 저장 오류: ' + (e.message || e), 'error');
+                });
+            })
+            .catch(function(e) {
+                console.error('[Supabase] 삭제 오류:', e);
+                showMessage('❌ 기존 데이터 삭제 오류: ' + (e.message || e), 'error');
+            });
     } else {
         console.warn('[Supabase] 연결 안 됨, localStorage만 저장');
+        // localStorage에 저장 (덮어쓰기)
+        const storageKey = `transactions_${userEmail}_${companyName}`;
+        localStorage.setItem(storageKey, JSON.stringify(transactions));
+        console.log(`[localStorage] ${companyName}에 ${transactions.length}건 저장됨`);
         showMessage('⚠️ localStorage에만 저장됨 (Supabase 미연결)\n\n브라우저 콘솔(F12)을 확인하세요.', 'error');
     }
 }
