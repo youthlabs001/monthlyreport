@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 엑셀 업로드 기능 (제거됨 - 재구현 예정)
     // setupExcelUpload();
     
+    // Google Sheets 연동 기능
+    setupSheetsImport();
+    
     // 수기 등록 기능
     setupManualEntry();
     
@@ -635,6 +638,389 @@ function displayUploadResult(result) {
 
 function addActivityLog(message) {
     // 활동 로그 기능 제거됨 (기존 호출부 호환용 no-op)
+}
+
+// ============================================
+// Google Sheets 연동 기능
+// ============================================
+
+let sheetsPreviewData = [];
+let sheetsPreviewChart = null;
+
+// Google Sheets 연동 초기화
+function setupSheetsImport() {
+    const fetchBtn = document.getElementById('fetchSheetsBtn');
+    const saveBtn = document.getElementById('saveSheetsDataBtn');
+    const targetUserSelect = document.getElementById('sheetsTargetUser');
+    
+    // 사용자 목록 채우기
+    if (targetUserSelect) {
+        updateSheetsUserSelect();
+    }
+    
+    // 데이터 가져오기 버튼
+    if (fetchBtn) {
+        fetchBtn.addEventListener('click', fetchGoogleSheetsData);
+    }
+    
+    // 저장 버튼
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveSheetsDataToSupabase);
+    }
+}
+
+// 사용자 선택 드롭다운 업데이트
+function updateSheetsUserSelect() {
+    const select = document.getElementById('sheetsTargetUser');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">사용자 선택</option>';
+    usersData.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.email;
+        option.textContent = `${user.name} (${user.email})`;
+        select.appendChild(option);
+    });
+}
+
+// 사용자 선택 시 회사 목록 업데이트
+function updateSheetsCompanySelection() {
+    const userEmail = document.getElementById('sheetsTargetUser').value;
+    const companySelect = document.getElementById('sheetsTargetCompany');
+    
+    if (!companySelect) return;
+    
+    companySelect.innerHTML = '<option value="">회사 선택</option>';
+    
+    if (!userEmail) return;
+    
+    const user = usersData.find(u => u.email === userEmail);
+    if (!user || !user.companies || user.companies.length === 0) return;
+    
+    user.companies.forEach(companyName => {
+        const option = document.createElement('option');
+        option.value = companyName;
+        option.textContent = companyName;
+        companySelect.appendChild(option);
+    });
+    
+    // 첫 번째 회사 자동 선택
+    if (user.companies.length > 0) {
+        companySelect.value = user.companies[0];
+    }
+}
+
+// Google Sheets에서 데이터 가져오기
+async function fetchGoogleSheetsData() {
+    const url = document.getElementById('sheetsUrl').value.trim();
+    const userEmail = document.getElementById('sheetsTargetUser').value;
+    const companyName = document.getElementById('sheetsTargetCompany').value;
+    
+    // 유효성 검사
+    if (!url) {
+        showMessage('Google Sheets URL을 입력해주세요.', 'error');
+        return;
+    }
+    if (!userEmail) {
+        showMessage('대상 사용자를 선택해주세요.', 'error');
+        return;
+    }
+    if (!companyName) {
+        showMessage('대상 회사를 선택해주세요.', 'error');
+        return;
+    }
+    
+    // URL 변환: 편집 URL → CSV 내보내기 URL
+    let csvUrl = url;
+    
+    // Google Sheets URL 형식 감지 및 변환
+    if (url.includes('/edit')) {
+        // https://docs.google.com/spreadsheets/d/SHEET_ID/edit... → CSV
+        const sheetId = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (sheetId && sheetId[1]) {
+            csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId[1]}/export?format=csv`;
+        }
+    } else if (!url.includes('export?format=csv')) {
+        showMessage('올바른 Google Sheets URL이 아닙니다.', 'error');
+        return;
+    }
+    
+    showMessage('데이터를 가져오는 중...', 'info');
+    
+    try {
+        const response = await fetch(csvUrl);
+        
+        if (!response.ok) {
+            throw new Error('데이터를 가져올 수 없습니다. 시트가 "웹에 게시"되었는지 확인하세요.');
+        }
+        
+        const csvText = await response.text();
+        
+        // CSV 파싱
+        const parsedData = parseCSV(csvText);
+        
+        if (parsedData.length === 0) {
+            showMessage('데이터가 없습니다.', 'error');
+            return;
+        }
+        
+        // 전역 변수에 저장 (저장 시 사용)
+        sheetsPreviewData = {
+            userEmail: userEmail,
+            companyName: companyName,
+            transactions: parsedData
+        };
+        
+        // 차트 렌더링
+        renderSheetsPreviewChart(parsedData);
+        
+        // 통계 업데이트
+        updateSheetsStats(parsedData);
+        
+        // 미리보기 섹션 표시
+        document.getElementById('sheetsPreviewSection').style.display = 'block';
+        
+        showMessage(`${parsedData.length}건의 데이터를 가져왔습니다!`, 'success');
+        
+    } catch (error) {
+        console.error('Google Sheets 데이터 가져오기 실패:', error);
+        showMessage('데이터 가져오기 실패: ' + error.message, 'error');
+    }
+}
+
+// CSV 파싱 함수
+function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const transactions = [];
+    
+    // 헤더 제외 (첫 행)
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        // CSV 파싱 (쉼표로 구분, 따옴표 처리)
+        const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+        const cleanValues = values.map(v => v.replace(/^"|"$/g, '').trim());
+        
+        if (cleanValues.length < 4) continue;
+        
+        const transaction = {
+            date: cleanValues[0],
+            client: cleanValues[1],
+            category: cleanValues[2],
+            amount: parseFloat(cleanValues[3].replace(/[^0-9.-]/g, '')) || 0,
+            status: cleanValues[4] || 'completed',
+            note: cleanValues[5] || ''
+        };
+        
+        // 유효성 검사
+        if (transaction.date && transaction.client && transaction.category && transaction.amount >= 0) {
+            transactions.push(transaction);
+        }
+    }
+    
+    return transactions;
+}
+
+// 월별 매출 차트 렌더링 (전년 vs 올해)
+function renderSheetsPreviewChart(transactions) {
+    const canvas = document.getElementById('sheetsPreviewChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // 기존 차트 제거
+    if (sheetsPreviewChart) {
+        sheetsPreviewChart.destroy();
+    }
+    
+    // 현재 연도 및 전년도
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
+    
+    // 월별 데이터 집계
+    const monthlyData = {};
+    
+    transactions.forEach(t => {
+        const date = new Date(t.date);
+        if (isNaN(date.getTime())) return;
+        
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // 1-12
+        
+        if (year !== currentYear && year !== lastYear) return;
+        
+        const key = `${year}-${month}`;
+        
+        if (!monthlyData[key]) {
+            monthlyData[key] = 0;
+        }
+        
+        monthlyData[key] += t.amount;
+    });
+    
+    // 1월~12월 레이블
+    const labels = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+    
+    // 올해 데이터
+    const thisYearData = [];
+    for (let m = 1; m <= 12; m++) {
+        const key = `${currentYear}-${m}`;
+        thisYearData.push(monthlyData[key] || 0);
+    }
+    
+    // 전년 데이터
+    const lastYearData = [];
+    for (let m = 1; m <= 12; m++) {
+        const key = `${lastYear}-${m}`;
+        lastYearData.push(monthlyData[key] || 0);
+    }
+    
+    // Chart.js 렌더링
+    sheetsPreviewChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: `${currentYear}년`,
+                    data: thisYearData,
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: `${lastYear}년`,
+                    data: lastYearData,
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += formatCurrency(context.parsed.y);
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 통계 업데이트
+function updateSheetsStats(transactions) {
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
+    
+    let thisYearTotal = 0;
+    let lastYearTotal = 0;
+    
+    transactions.forEach(t => {
+        const date = new Date(t.date);
+        if (isNaN(date.getTime())) return;
+        
+        const year = date.getFullYear();
+        
+        if (year === currentYear) {
+            thisYearTotal += t.amount;
+        } else if (year === lastYear) {
+            lastYearTotal += t.amount;
+        }
+    });
+    
+    document.getElementById('sheetsStatTotal').textContent = `${transactions.length}건`;
+    document.getElementById('sheetsStatThisYear').textContent = formatCurrency(thisYearTotal);
+    document.getElementById('sheetsStatLastYear').textContent = formatCurrency(lastYearTotal);
+}
+
+// Supabase에 데이터 저장
+function saveSheetsDataToSupabase() {
+    if (!sheetsPreviewData || !sheetsPreviewData.transactions || sheetsPreviewData.transactions.length === 0) {
+        showMessage('저장할 데이터가 없습니다.', 'error');
+        return;
+    }
+    
+    const { userEmail, companyName, transactions } = sheetsPreviewData;
+    
+    showMessage('Supabase에 저장 중...', 'info');
+    
+    // localStorage에 저장
+    const storageKey = `transactions_${userEmail}_${companyName}`;
+    let existingData = localStorage.getItem(storageKey);
+    let allTransactions = existingData ? JSON.parse(existingData) : [];
+    allTransactions = [...allTransactions, ...transactions];
+    localStorage.setItem(storageKey, JSON.stringify(allTransactions));
+    
+    console.log(`[localStorage] ${companyName}에 ${transactions.length}건 저장됨`);
+    
+    // Supabase DB에 저장
+    if (typeof supabase !== 'undefined' && supabase) {
+        const rows = transactions.map(function(t) {
+            return {
+                user_email: userEmail,
+                company_name: companyName,
+                transaction_date: t.date,
+                client: t.client,
+                category: t.category,
+                amount: t.amount,
+                status: t.status || 'completed',
+                note: t.note || ''
+            };
+        });
+        
+        supabase.from('transactions').insert(rows).then(function(result) {
+            if (result.error) {
+                console.error('[Supabase] 거래 데이터 저장 실패:', result.error);
+                showMessage('Supabase 저장 실패: ' + result.error.message, 'error');
+            } else {
+                console.log(`[Supabase] ${companyName}에 ${transactions.length}건 저장 성공`);
+                showMessage(`✅ Supabase DB에 ${transactions.length}건 저장 완료!`, 'success');
+                
+                // 성공 후 초기화
+                document.getElementById('sheetsUrl').value = '';
+                document.getElementById('sheetsPreviewSection').style.display = 'none';
+                sheetsPreviewData = [];
+            }
+        }).catch(function(e) {
+            console.error('[Supabase] 거래 데이터 저장 오류:', e);
+            showMessage('Supabase 저장 오류: ' + (e.message || e), 'error');
+        });
+    } else {
+        console.warn('[Supabase] 연결 안 됨, localStorage만 저장');
+        showMessage('localStorage에만 저장됨 (Supabase 미연결)', 'info');
+    }
 }
 
 // 수기 등록 설정
