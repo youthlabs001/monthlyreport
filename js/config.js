@@ -1,9 +1,9 @@
 // 설정 및 데모 데이터
 
 // Supabase 연동 (프로젝트 ID: rmneisdjxjteysazzrhy)
-// anon key는 Supabase 대시보드 > Project Settings > API 에서 확인 후 넣어주세요.
-const SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+// supabase-config.js에서 먼저 로드되므로 여기서는 선언하지 않음
+// const SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
+// const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
 
 // 데모 사용자 계정
 const DEMO_USERS = {
