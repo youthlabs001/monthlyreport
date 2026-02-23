@@ -963,6 +963,8 @@ function openAddUserModal() {
     document.getElementById('editUserName').value = '';
     document.getElementById('editUserEmail').value = '';
     document.getElementById('editUserEmail').removeAttribute('readonly');
+    document.getElementById('editUserPassword').value = '';
+    document.getElementById('editUserPasswordGroup').style.display = 'block';
     document.getElementById('editUserStatus').value = '활성';
     renderUserCompanies();
     populateCompanySelect();
@@ -989,6 +991,7 @@ function openEditUserModal(email, userId) {
     document.getElementById('editUserName').value = user.name;
     document.getElementById('editUserEmail').value = user.email;
     document.getElementById('editUserEmail').setAttribute('readonly', 'readonly');
+    document.getElementById('editUserPasswordGroup').style.display = 'none';
     document.getElementById('editUserStatus').value = user.status;
     
     // 회사 목록 표시
@@ -1132,6 +1135,44 @@ function saveUserChanges() {
             alert('이미 등록된 이메일입니다.');
             return;
         }
+        const password = document.getElementById('editUserPassword').value;
+        if (password && password.length > 0 && password.length < 8) {
+            alert('비밀번호는 8자 이상이어야 합니다.');
+            return;
+        }
+        
+        // 비밀번호 입력 시 로그인 가능한 계정으로 DEMO_USERS에 등록
+        if (password && password.length >= 8) {
+            if (typeof DEMO_USERS !== 'undefined' && !DEMO_USERS[email]) {
+                const companyName = currentEditingUser.companies.length > 0 ? currentEditingUser.companies[0] : '';
+                const newAuthUser = {
+                    password: password,
+                    fullName: name,
+                    isAdmin: false,
+                    companyName: companyName,
+                    data: {
+                        currentMonthRevenue: 0,
+                        lastMonthRevenue: 0,
+                        monthlyRevenue: [],
+                        lastYearRevenue: [],
+                        categories: [],
+                        weeklyData: [],
+                        quarterlyGrowth: [],
+                        transactions: []
+                    }
+                };
+                DEMO_USERS[email] = newAuthUser;
+                try {
+                    const stored = localStorage.getItem('demo_users_additions') || '{}';
+                    const additions = JSON.parse(stored);
+                    additions[email] = newAuthUser;
+                    localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+                } catch (e) {
+                    console.warn('사용자 계정 저장 실패:', e);
+                }
+            }
+        }
+        
         const newId = usersData.length ? Math.max(...usersData.map(u => u.id)) + 1 : 1;
         usersData.push({
             id: newId,
@@ -1146,7 +1187,10 @@ function saveUserChanges() {
         updateUserSelects();
         updateCompaniesTable();
         updateStats();
-        showMessage(`${name} 사용자가 추가되었습니다.`, 'success');
+        const msg = password && password.length >= 8 
+            ? `${name} 사용자가 추가되었습니다. 로그인 화면에서 ${email} 로 로그인할 수 있습니다.`
+            : `${name} 사용자가 추가되었습니다.`;
+        showMessage(msg, 'success');
         addActivityLog(`사용자 추가: ${name} (${email})`);
         closeEditUserModal();
         return;
