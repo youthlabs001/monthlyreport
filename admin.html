@@ -616,34 +616,53 @@
     <script src="js/config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Supabase 설정 및 초기화 (완전히 단순화)
-        console.log('[1] Supabase CDN 로드 완료');
-        
+        // Supabase 설정
         var SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
         var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
-        
-        console.log('[2] window.supabase 타입:', typeof window.supabase);
-        
         var supabase = null;
         
-        if (window.supabase && window.supabase.createClient) {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            window.supabase = supabase; // 전역으로 명확히 설정
-            console.log('[3] ✅ Supabase 클라이언트 생성 성공!');
-            console.log('[4] supabase 변수:', supabase !== null ? '✓ 존재' : '✗ null');
+        // Supabase 초기화 함수 (재시도 로직 포함)
+        function initSupabase(attempt) {
+            attempt = attempt || 1;
             
-            // 연결 테스트
-            if (supabase.auth) {
-                supabase.auth.getSession().then(function() {
-                    console.log('[5] ✅ Supabase 연결 테스트 성공!');
-                }).catch(function(e) {
-                    console.error('[5] ❌ Supabase 연결 테스트 실패:', e);
-                });
+            console.log('[시도 ' + attempt + '] Supabase 초기화 중...');
+            console.log('  window.supabase 타입:', typeof window.supabase);
+            console.log('  window.supabase 값:', window.supabase);
+            
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase 클라이언트 생성 성공!');
+                console.log('✅ supabase 변수:', supabase ? '존재' : 'null');
+                
+                // 전역 변수 명확히 설정
+                window.supabaseClient = supabase;
+                
+                // 연결 테스트
+                if (supabase && supabase.auth) {
+                    supabase.auth.getSession().then(function() {
+                        console.log('✅ Supabase 연결 테스트 성공!');
+                    }).catch(function(e) {
+                        console.error('❌ Supabase 연결 테스트 실패:', e);
+                    });
+                }
+                return true;
+            } else {
+                console.warn('❌ CDN 아직 로드 안 됨 (시도 ' + attempt + '/10)');
+                
+                if (attempt < 10) {
+                    setTimeout(function() {
+                        initSupabase(attempt + 1);
+                    }, 200); // 200ms 후 재시도
+                } else {
+                    console.error('❌ Supabase CDN 로드 실패!');
+                    console.error('   수동 새로고침이 필요합니다.');
+                }
+                return false;
             }
-        } else {
-            console.error('[3] ❌ window.supabase.createClient 없음!');
-            console.error('    window.supabase:', window.supabase);
         }
+        
+        // 즉시 시도
+        initSupabase(1);
     </script>
     <script src="js/admin.js"></script>
 </body>
