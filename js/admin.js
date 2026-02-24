@@ -54,12 +54,13 @@ if (document.readyState === 'loading') {
 
 // 사용자 정보 업데이트
 function updateUserInfo() {
-    const currentUser = Storage.getUser();
-    const userNameEls = document.querySelectorAll('#userName, .admin-user-name');
-    const userEmailEls = document.querySelectorAll('#userEmail, .admin-user-email');
+    var currentUser = Storage.getUser();
+    if (!currentUser) return;
+    var userNameEls = document.querySelectorAll('#userName, .admin-user-name');
+    var userEmailEls = document.querySelectorAll('#userEmail, .admin-user-email');
     
-    userNameEls.forEach(el => el.textContent = '관리자');
-    userEmailEls.forEach(el => el.textContent = currentUser.email);
+    userNameEls.forEach(function(el) { el.textContent = currentUser.fullName || '관리자'; });
+    userEmailEls.forEach(function(el) { el.textContent = currentUser.email; });
 }
 
 // 메뉴 전환 설정
