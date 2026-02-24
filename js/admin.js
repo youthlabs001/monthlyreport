@@ -1,12 +1,17 @@
 // 관리자 페이지 기능
 
-document.addEventListener('DOMContentLoaded', () => {
+function initAdmin() {
+    console.log('[initAdmin] 시작');
+    
     // 로그인 및 관리자 권한 확인
     const currentUser = Storage.getUser();
     if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
+    console.log('[initAdmin] currentUser:', currentUser.email);
+    console.log('[initAdmin] isAdmin:', isAdminUser(currentUser.email));
+    
     if (!isAdminUser(currentUser.email)) {
         window.location.href = 'dashboard.html';
         return;
@@ -50,9 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNoticeButton();
     updateNoticesTable();
     
-    // Supabase 연동: 로그인 세션이 있으면 DB에서 회사/사용자 로드 후 UI 갱신
+    // Supabase에서 회사/사용자 로드 후 UI 갱신
     loadAdminDataFromSupabase();
-});
+    
+    console.log('[initAdmin] 초기화 완료');
+}
+
+// DOM 로드 완료 여부 확인 후 실행
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdmin);
+} else {
+    initAdmin();
+}
 
 // 사용자 정보 업데이트
 function updateUserInfo() {
@@ -1353,80 +1367,115 @@ function saveCompaniesData() {
     }
 }
 
-// Supabase에서 회사/사용자 로드 (세션 있을 때만, public.companies / public.app_users)
+// Supabase에서 회사/사용자 로드 (세션 불필요 - anon 허용)
 function loadAdminDataFromSupabase() {
-    if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
-    supabase.auth.getSession().then(function(sessionRes) {
-        if (!sessionRes.data || !sessionRes.data.session) return;
-        var session = sessionRes.data.session;
-        supabase.from('companies').select('id,name,number').then(function(r) {
-            if (r.data && r.data.length > 0) {
-                availableCompanies.length = 0;
-                r.data.forEach(function(c) {
-                    availableCompanies.push({ name: c.name, number: c.number });
+    if (typeof supabase === 'undefined' || !supabase) {
+        console.warn('[Supabase] 연결 안 됨, localStorage만 사용');
+        return;
+    }
+    
+    console.log('[Supabase] 관리자 데이터 로드 시작...');
+    
+    // 회사 데이터 로드
+    supabase.from('companies').select('id,name,number').then(function(r) {
+        console.log('[Supabase] companies 조회 결과:', r);
+        if (r.data && r.data.length > 0) {
+            availableCompanies.length = 0;
+            r.data.forEach(function(c) {
+                availableCompanies.push({ name: c.name, number: c.number });
+            });
+            try {
+                localStorage.setItem(ADMIN_COMPANIES_STORAGE_KEY, JSON.stringify(availableCompanies));
+            } catch (e) {}
+            updateCompaniesTable();
+            updateUserSelects();
+            updateStats();
+            console.log('[Supabase] companies', r.data.length, '건 로드 완료');
+        }
+    }).catch(function(e) {
+        console.warn('[Supabase] companies 로드 실패:', e && e.message);
+    });
+    
+    // 사용자 데이터 로드
+    supabase.from('app_users').select('id,name,email,companies,join_date,status,password_hash').then(function(r) {
+        console.log('[Supabase] app_users 조회 결과:', r);
+        if (r.data && r.data.length > 0) {
+            usersData.length = 0;
+            r.data.forEach(function(u) {
+                usersData.push({
+                    id: u.id,
+                    name: u.name,
+                    email: u.email,
+                    companies: Array.isArray(u.companies) ? u.companies : (u.companies ? JSON.parse(u.companies) : []),
+                    joinDate: u.join_date || '',
+                    status: u.status || '활성'
                 });
-                try {
-                    localStorage.setItem(ADMIN_COMPANIES_STORAGE_KEY, JSON.stringify(availableCompanies));
-                } catch (e) {}
-                updateCompaniesTable();
-                updateUserSelects();
-                updateStats();
-            }
-        }).catch(function(e) {
-            console.warn('[Supabase] companies 로드 실패 (테이블 없을 수 있음):', e && e.message);
-        });
-        supabase.from('app_users').select('id,name,email,companies,join_date,status').then(function(r) {
-            if (r.data && r.data.length > 0) {
-                usersData.length = 0;
-                r.data.forEach(function(u) {
-                    usersData.push({
-                        id: u.id,
-                        name: u.name,
-                        email: u.email,
-                        companies: Array.isArray(u.companies) ? u.companies : (u.companies ? JSON.parse(u.companies) : []),
-                        joinDate: u.join_date || '',
-                        status: u.status || '활성'
-                    });
-                });
-                try {
-                    localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(usersData));
-                } catch (e) {}
-                updateUsersTable();
-                updateUserSelects();
-                updateStats();
-            }
-        }).catch(function(e) {
-            console.warn('[Supabase] app_users 로드 실패 (테이블 없을 수 있음):', e && e.message);
-        });
+                
+                // DEMO_USERS에도 추가 (다른 PC에서 로그인 지원)
+                if (typeof DEMO_USERS !== 'undefined' && u.password_hash) {
+                    var companies = Array.isArray(u.companies) ? u.companies : [];
+                    DEMO_USERS[u.email] = {
+                        password: u.password_hash,
+                        fullName: u.name,
+                        isAdmin: false,
+                        companyName: companies.length > 0 ? companies[0] : '',
+                        companies: companies,
+                        data: {
+                            currentMonthRevenue: 0,
+                            lastMonthRevenue: 0,
+                            monthlyRevenue: [],
+                            lastYearRevenue: [],
+                            categories: [],
+                            weeklyData: [],
+                            quarterlyGrowth: [],
+                            transactions: []
+                        }
+                    };
+                }
+            });
+            try {
+                localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(usersData));
+            } catch (e) {}
+            updateUsersTable();
+            updateUserSelects();
+            updateStats();
+            console.log('[Supabase] app_users', r.data.length, '건 로드 완료');
+        }
+    }).catch(function(e) {
+        console.warn('[Supabase] app_users 로드 실패:', e && e.message);
     });
 }
 
 function syncCompaniesToSupabase() {
-    if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
-    supabase.auth.getSession().then(function(sessionRes) {
-        if (!sessionRes.data || !sessionRes.data.session) return;
-        supabase.from('companies').select('id').then(function(r) {
-            var ids = (r.data || []).map(function(x) { return x.id; });
-            if (ids.length === 0) {
-                if (availableCompanies.length === 0) return;
-                var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
-                supabase.from('companies').insert(rows).then(function() {}).catch(function(e) {
-                    console.warn('[Supabase] companies 저장 실패:', e && e.message);
-                });
-                return;
-            }
-            supabase.from('companies').delete().in('id', ids).then(function() {
-                if (availableCompanies.length === 0) return;
-                var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
-                supabase.from('companies').insert(rows).then(function() {}).catch(function(e) {
-                    console.warn('[Supabase] companies 저장 실패:', e && e.message);
-                });
+    if (typeof supabase === 'undefined' || !supabase) return;
+    
+    console.log('[Supabase] companies 동기화 시작...');
+    
+    supabase.from('companies').select('id').then(function(r) {
+        var ids = (r.data || []).map(function(x) { return x.id; });
+        if (ids.length === 0) {
+            if (availableCompanies.length === 0) return;
+            var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
+            supabase.from('companies').insert(rows).then(function(res) {
+                console.log('[Supabase] companies 저장 완료:', res);
             }).catch(function(e) {
-                console.warn('[Supabase] companies 삭제 실패:', e && e.message);
+                console.warn('[Supabase] companies 저장 실패:', e && e.message);
+            });
+            return;
+        }
+        supabase.from('companies').delete().in('id', ids).then(function() {
+            if (availableCompanies.length === 0) return;
+            var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
+            supabase.from('companies').insert(rows).then(function(res) {
+                console.log('[Supabase] companies 저장 완료:', res);
+            }).catch(function(e) {
+                console.warn('[Supabase] companies 저장 실패:', e && e.message);
             });
         }).catch(function(e) {
-            console.warn('[Supabase] companies id 조회 실패:', e && e.message);
+            console.warn('[Supabase] companies 삭제 실패:', e && e.message);
         });
+    }).catch(function(e) {
+        console.warn('[Supabase] companies id 조회 실패:', e && e.message);
     });
 }
 

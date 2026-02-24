@@ -644,31 +644,31 @@
             });
         }
         
-        // Supabase 초기화
+        // Supabase 초기화 후 admin.js 로드
         loadSupabaseCDN().then(function() {
             console.log('[4] Supabase 클라이언트 생성 시도...');
             
             if (window.supabase && window.supabase.createClient) {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 console.log('[5] ✅ Supabase 클라이언트 생성 성공!');
-                console.log('[6] supabase:', supabase ? '✓ 존재' : '✗ null');
-                
-                // 연결 테스트
-                if (supabase && supabase.auth) {
-                    supabase.auth.getSession().then(function() {
-                        console.log('[7] ✅ Supabase 연결 테스트 성공!');
-                    }).catch(function(e) {
-                        console.error('[7] ❌ 연결 테스트 실패:', e);
-                    });
-                }
             } else {
                 console.error('[4] ❌ window.supabase.createClient 없음!');
             }
+            
+            // admin.js 동적 로드
+            var script = document.createElement('script');
+            script.src = 'js/admin.js';
+            script.onload = function() {
+                console.log('[6] ✅ admin.js 로드 완료');
+            };
+            document.body.appendChild(script);
         }).catch(function(err) {
             console.error('[ERROR] CDN 로드 실패:', err);
-            console.error('       인터넷 연결을 확인하세요.');
+            // 실패해도 admin.js는 로드
+            var script = document.createElement('script');
+            script.src = 'js/admin.js';
+            document.body.appendChild(script);
         });
     </script>
-    <script src="js/admin.js"></script>
 </body>
 </html>
