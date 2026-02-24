@@ -228,10 +228,16 @@ const DEMO_USERS = {
     }
 })();
 
-// 관리자 계정 여부 확인 (여러 관리자 지원)
-const ADMIN_EMAIL = 'admin@company.com';
+// 관리자 이메일 목록 (하드코딩)
+const ADMIN_EMAILS = ['anteater1@naver.com', 'admin@company.com'];
+
+// 관리자 계정 여부 확인
 function isAdminUser(email) {
-    return DEMO_USERS[email] && DEMO_USERS[email].isAdmin === true;
+    // 하드코딩 관리자 이메일 확인
+    if (ADMIN_EMAILS.includes(email)) return true;
+    // DEMO_USERS에서 확인
+    if (DEMO_USERS[email] && DEMO_USERS[email].isAdmin === true) return true;
+    return false;
 }
 
 // 숫자 포맷팅 함수
