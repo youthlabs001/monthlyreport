@@ -133,7 +133,24 @@ const DEMO_USERS = {
             ]
         }
     },
-    // 관리자 전용 계정
+    // 관리자 전용 계정 (마스터)
+    'anteater1@naver.com': {
+        password: 'admin123',
+        fullName: '관리자',
+        isAdmin: true,
+        companyName: '관리자',
+        data: {
+            currentMonthRevenue: 0,
+            lastMonthRevenue: 0,
+            monthlyRevenue: [],
+            lastYearRevenue: [],
+            categories: [],
+            weeklyData: [],
+            quarterlyGrowth: [],
+            transactions: []
+        }
+    },
+    // 관리자 전용 계정 (백업)
     'admin@company.com': {
         password: 'admin123',
         fullName: '관리자',

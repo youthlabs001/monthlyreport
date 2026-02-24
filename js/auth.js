@@ -44,16 +44,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (result.data.password_hash === password) {
                             console.log('[로그인] 비밀번호 일치 - 로그인 성공!');
                             
-                            // Supabase에서 찾은 사용자 정보를 localStorage에 저장
                             var companies = result.data.companies || [];
                             var companyName = companies.length > 0 ? companies[0] : '';
+                            var isAdmin = result.data.is_admin === true || result.data.status === '관리자';
                             
-                            // DEMO_USERS에 추가 (다음 로그인부터 빠르게)
+                            // DEMO_USERS에 추가
                             if (typeof DEMO_USERS !== 'undefined') {
                                 DEMO_USERS[email] = {
                                     password: password,
                                     fullName: result.data.name,
-                                    isAdmin: false,
+                                    isAdmin: isAdmin,
                                     companyName: companyName,
                                     companies: companies,
                                     data: {
@@ -68,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                 };
                                 
-                                // localStorage에도 저장
                                 try {
                                     var additions = JSON.parse(localStorage.getItem('demo_users_additions') || '{}');
                                     additions[email] = DEMO_USERS[email];
@@ -83,8 +82,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 remember: remember
                             });
                             showMessage('로그인 성공!', 'success');
+                            
+                            // 관리자 확인 (DB is_admin 또는 config의 isAdminUser)
+                            var goAdmin = isAdmin || (typeof isAdminUser === 'function' && isAdminUser(email));
+                            console.log('[로그인] 관리자 여부:', goAdmin);
+                            
                             setTimeout(function() {
-                                window.location.href = 'dashboard.html';
+                                window.location.href = goAdmin ? 'admin.html' : 'dashboard.html';
                             }, 500);
                             return;
                         } else {
