@@ -1354,80 +1354,118 @@ function saveCompaniesData() {
 
 // Supabase에서 회사/사용자 로드 (세션 불필요 - anon 허용)
 function loadAdminDataFromSupabase() {
+    var statusEl = document.getElementById('contentSubtitle');
+    
     if (typeof supabase === 'undefined' || !supabase) {
         console.warn('[Supabase] 연결 안 됨, localStorage만 사용');
+        if (statusEl) statusEl.textContent = '⚠️ Supabase 미연결 - 로컬 데이터만 표시됩니다';
         return;
     }
     
     console.log('[Supabase] 관리자 데이터 로드 시작...');
+    if (statusEl) statusEl.textContent = 'Supabase에서 데이터 로드 중...';
+    
+    var loadedCompanies = false;
+    var loadedUsers = false;
+    
+    function checkComplete() {
+        if (loadedCompanies && loadedUsers) {
+            if (statusEl) statusEl.textContent = '등록된 사용자를 관리합니다';
+            // Google Sheets 사용자/회사 드롭다운도 갱신
+            try { updateSheetsUserSelect(); } catch(e) {}
+        }
+    }
     
     // 회사 데이터 로드
     supabase.from('companies').select('id,name,number').then(function(r) {
-        console.log('[Supabase] companies 조회 결과:', r);
+        console.log('[Supabase] companies 결과:', r);
+        if (r.error) {
+            console.error('[Supabase] companies 에러:', r.error);
+            if (statusEl) statusEl.textContent = '⚠️ 회사 로드 실패: ' + (r.error.message || 'RLS 정책 확인 필요');
+            loadedCompanies = true;
+            checkComplete();
+            return;
+        }
         if (r.data && r.data.length > 0) {
             availableCompanies.length = 0;
             r.data.forEach(function(c) {
                 availableCompanies.push({ name: c.name, number: c.number });
             });
-            try {
-                localStorage.setItem(ADMIN_COMPANIES_STORAGE_KEY, JSON.stringify(availableCompanies));
-            } catch (e) {}
+            try { localStorage.setItem(ADMIN_COMPANIES_STORAGE_KEY, JSON.stringify(availableCompanies)); } catch(e) {}
             updateCompaniesTable();
             updateUserSelects();
             updateStats();
-            console.log('[Supabase] companies', r.data.length, '건 로드 완료');
+            console.log('[Supabase] companies ' + r.data.length + '건 로드 완료');
+        } else {
+            console.log('[Supabase] companies 테이블 비어있음, 로컬 데이터 업로드 시도');
+            if (availableCompanies.length > 0) {
+                syncCompaniesToSupabase();
+            }
         }
+        loadedCompanies = true;
+        checkComplete();
     }).catch(function(e) {
-        console.warn('[Supabase] companies 로드 실패:', e && e.message);
+        console.error('[Supabase] companies 로드 실패:', e);
+        loadedCompanies = true;
+        checkComplete();
     });
     
     // 사용자 데이터 로드
-    supabase.from('app_users').select('id,name,email,companies,join_date,status,password_hash').then(function(r) {
-        console.log('[Supabase] app_users 조회 결과:', r);
+    supabase.from('app_users').select('id,name,email,companies,join_date,status,password_hash,is_admin').then(function(r) {
+        console.log('[Supabase] app_users 결과:', r);
+        if (r.error) {
+            console.error('[Supabase] app_users 에러:', r.error);
+            if (statusEl) statusEl.textContent = '⚠️ 사용자 로드 실패: ' + (r.error.message || 'RLS 정책 확인 필요');
+            loadedUsers = true;
+            checkComplete();
+            return;
+        }
         if (r.data && r.data.length > 0) {
             usersData.length = 0;
             r.data.forEach(function(u) {
+                var companies = [];
+                try {
+                    companies = Array.isArray(u.companies) ? u.companies : (u.companies ? JSON.parse(u.companies) : []);
+                } catch(e) { companies = []; }
+                
                 usersData.push({
                     id: u.id,
                     name: u.name,
                     email: u.email,
-                    companies: Array.isArray(u.companies) ? u.companies : (u.companies ? JSON.parse(u.companies) : []),
+                    companies: companies,
                     joinDate: u.join_date || '',
                     status: u.status || '활성'
                 });
                 
-                // DEMO_USERS에도 추가 (다른 PC에서 로그인 지원)
                 if (typeof DEMO_USERS !== 'undefined' && u.password_hash) {
-                    var companies = Array.isArray(u.companies) ? u.companies : [];
                     DEMO_USERS[u.email] = {
                         password: u.password_hash,
                         fullName: u.name,
-                        isAdmin: false,
+                        isAdmin: u.is_admin === true,
                         companyName: companies.length > 0 ? companies[0] : '',
                         companies: companies,
-                        data: {
-                            currentMonthRevenue: 0,
-                            lastMonthRevenue: 0,
-                            monthlyRevenue: [],
-                            lastYearRevenue: [],
-                            categories: [],
-                            weeklyData: [],
-                            quarterlyGrowth: [],
-                            transactions: []
-                        }
+                        data: { currentMonthRevenue: 0, lastMonthRevenue: 0, monthlyRevenue: [], lastYearRevenue: [], categories: [], weeklyData: [], quarterlyGrowth: [], transactions: [] }
                     };
                 }
             });
-            try {
-                localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(usersData));
-            } catch (e) {}
+            try { localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(usersData)); } catch(e) {}
             updateUsersTable();
+            updateAdminsTable();
             updateUserSelects();
             updateStats();
-            console.log('[Supabase] app_users', r.data.length, '건 로드 완료');
+            console.log('[Supabase] app_users ' + r.data.length + '건 로드 완료');
+        } else {
+            console.log('[Supabase] app_users 테이블 비어있음, 로컬 데이터 업로드 시도');
+            if (usersData.length > 0) {
+                syncUsersToSupabase();
+            }
         }
+        loadedUsers = true;
+        checkComplete();
     }).catch(function(e) {
-        console.warn('[Supabase] app_users 로드 실패:', e && e.message);
+        console.error('[Supabase] app_users 로드 실패:', e);
+        loadedUsers = true;
+        checkComplete();
     });
 }
 

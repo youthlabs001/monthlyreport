@@ -620,12 +620,24 @@
         var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
         var _supabaseLib = window.supabase;
         var supabase = null;
+        console.log('[Supabase Init] window.supabase 타입:', typeof _supabaseLib);
+        console.log('[Supabase Init] createClient 존재:', _supabaseLib && typeof _supabaseLib.createClient === 'function');
         try {
             if (_supabaseLib && _supabaseLib.createClient) {
                 supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase 초기화 완료');
+                console.log('✅ Supabase 클라이언트 생성 완료');
+                // 연결 테스트
+                supabase.from('companies').select('id', { count: 'exact', head: true }).then(function(r) {
+                    if (r.error) {
+                        console.error('❌ Supabase 연결 테스트 실패:', r.error.message);
+                        document.title = '관리자 - DB 연결 오류';
+                    } else {
+                        console.log('✅ Supabase 연결 테스트 성공');
+                    }
+                });
             } else {
-                console.warn('⚠️ Supabase CDN 미로드, Supabase 없이 진행');
+                console.warn('⚠️ Supabase CDN 미로드 (_supabaseLib:', _supabaseLib, ')');
+                document.title = '관리자 - CDN 미로드';
             }
         } catch (e) {
             console.error('❌ Supabase 초기화 실패:', e);
