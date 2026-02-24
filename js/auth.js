@@ -1,8 +1,10 @@
 // 로그인 기능
 
-document.addEventListener('DOMContentLoaded', () => {
+function initAuth() {
     const loginForm = document.getElementById('loginForm');
     const demoBtns = document.querySelectorAll('.btn-demo');
+    
+    if (!loginForm) return;
     
     // 이미 로그인된 경우 권한에 따라 리다이렉트
     if (Storage.isLoggedIn()) {
@@ -182,7 +184,13 @@ document.addEventListener('DOMContentLoaded', () => {
             loginForm.dispatchEvent(new Event('submit'));
         });
     });
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAuth);
+} else {
+    initAuth();
+}
 
 // 메시지 표시 함수
 function showMessage(message, type = 'info') {

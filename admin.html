@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard-chart.css">
     <link rel="stylesheet" href="css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -49,7 +50,7 @@
         <div class="admin-user-info">
             <div class="admin-user-details">
                 <div class="admin-user-name" id="userName">관리자</div>
-                <div class="admin-user-email" id="userEmail">admin@company.com</div>
+                <div class="admin-user-email" id="userEmail">로딩 중...</div>
             </div>
             <button class="btn-logout-admin" id="logoutBtn">로그아웃</button>
         </div>
@@ -615,60 +616,21 @@
 
     <script src="js/config.js"></script>
     <script>
-        // Supabase 설정
         var SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
         var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+        var _supabaseLib = window.supabase;
         var supabase = null;
-        
-        console.log('[1] Supabase CDN 로드 시작...');
-        
-        // CDN 동적 로드 함수
-        function loadSupabaseCDN() {
-            return new Promise(function(resolve, reject) {
-                var script = document.createElement('script');
-                script.src = 'https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js';
-                script.crossOrigin = 'anonymous';
-                
-                script.onload = function() {
-                    console.log('[2] ✅ CDN 로드 완료!');
-                    console.log('[3] window.supabase:', window.supabase);
-                    resolve();
-                };
-                
-                script.onerror = function() {
-                    console.error('[2] ❌ CDN 로드 실패!');
-                    reject(new Error('CDN load failed'));
-                };
-                
-                document.head.appendChild(script);
-            });
-        }
-        
-        // Supabase 초기화 후 admin.js 로드
-        loadSupabaseCDN().then(function() {
-            console.log('[4] Supabase 클라이언트 생성 시도...');
-            
-            if (window.supabase && window.supabase.createClient) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('[5] ✅ Supabase 클라이언트 생성 성공!');
+        try {
+            if (_supabaseLib && _supabaseLib.createClient) {
+                supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase 초기화 완료');
             } else {
-                console.error('[4] ❌ window.supabase.createClient 없음!');
+                console.warn('⚠️ Supabase CDN 미로드, Supabase 없이 진행');
             }
-            
-            // admin.js 동적 로드
-            var script = document.createElement('script');
-            script.src = 'js/admin.js';
-            script.onload = function() {
-                console.log('[6] ✅ admin.js 로드 완료');
-            };
-            document.body.appendChild(script);
-        }).catch(function(err) {
-            console.error('[ERROR] CDN 로드 실패:', err);
-            // 실패해도 admin.js는 로드
-            var script = document.createElement('script');
-            script.src = 'js/admin.js';
-            document.body.appendChild(script);
-        });
+        } catch (e) {
+            console.error('❌ Supabase 초기화 실패:', e);
+        }
     </script>
+    <script src="js/admin.js"></script>
 </body>
 </html>

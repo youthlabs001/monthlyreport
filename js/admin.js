@@ -2,6 +2,7 @@
 
 function initAdmin() {
     console.log('[initAdmin] 시작');
+    console.log('[initAdmin] supabase 상태:', typeof supabase !== 'undefined' && supabase ? '연결됨' : '미연결');
     
     // 로그인 및 관리자 권한 확인
     const currentUser = Storage.getUser();
@@ -10,53 +11,36 @@ function initAdmin() {
         return;
     }
     console.log('[initAdmin] currentUser:', currentUser.email);
-    console.log('[initAdmin] isAdmin:', isAdminUser(currentUser.email));
     
     if (!isAdminUser(currentUser.email)) {
         window.location.href = 'dashboard.html';
         return;
     }
     
-    // 사용자 정보 업데이트
-    updateUserInfo();
+    var steps = [
+        ['updateUserInfo', updateUserInfo],
+        ['setupTabs', setupTabs],
+        ['setupLogout', setupLogout],
+        ['setupButtons', setupButtons],
+        ['setupSheetsImport', setupSheetsImport],
+        ['setupManualEntry', setupManualEntry],
+        ['updateUsersTable', updateUsersTable],
+        ['updateAdminsTable', updateAdminsTable],
+        ['updateUserSelects', updateUserSelects],
+        ['updateCompaniesTable', updateCompaniesTable],
+        ['updateStats', updateStats],
+        ['setupNoticeButton', setupNoticeButton],
+        ['updateNoticesTable', updateNoticesTable],
+        ['loadAdminDataFromSupabase', loadAdminDataFromSupabase]
+    ];
     
-    // 탭 전환 이벤트
-    setupTabs();
-    
-    // 로그아웃 버튼
-    setupLogout();
-    
-    // 버튼 이벤트
-    setupButtons();
-    
-    // 엑셀 업로드 기능 (제거됨 - 재구현 예정)
-    // setupExcelUpload();
-    
-    // Google Sheets 연동 기능
-    setupSheetsImport();
-    
-    // 수기 등록 기능
-    setupManualEntry();
-    
-    // 사용자·관리자 테이블 초기화
-    updateUsersTable();
-    updateAdminsTable();
-    
-    // 사용자 선택 드롭다운 초기화
-    updateUserSelects();
-    
-    // 회사 테이블 초기화
-    updateCompaniesTable();
-    
-    // 통계 업데이트
-    updateStats();
-    
-    // 공지사항 등록 버튼 및 테이블
-    setupNoticeButton();
-    updateNoticesTable();
-    
-    // Supabase에서 회사/사용자 로드 후 UI 갱신
-    loadAdminDataFromSupabase();
+    steps.forEach(function(step) {
+        try {
+            step[1]();
+        } catch (e) {
+            console.error('[initAdmin] ' + step[0] + ' 실패:', e);
+        }
+    });
     
     console.log('[initAdmin] 초기화 완료');
 }
