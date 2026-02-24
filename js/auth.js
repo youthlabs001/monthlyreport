@@ -19,91 +19,87 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('password').value;
         const remember = document.getElementById('remember').checked;
         
-        // 1) Supabase 연동 시 Supabase Auth 먼저 시도
-        if (typeof supabase !== 'undefined' && supabase && supabase.auth) {
-            try {
-                var res = await supabase.auth.signInWithPassword({ email: email, password: password });
-                if (res.data && res.data.user) {
-                    var u = res.data.user;
-                    var meta = u.user_metadata || {};
-                    Storage.setUser({
-                        email: u.email,
-                        companyName: meta.company_name || meta.companyName || '',
-                        fullName: meta.full_name || meta.fullName || u.email,
-                        remember: remember
-                    });
-                    showMessage('로그인 성공!', 'success');
-                    var isAdmin = meta.is_admin === true || meta.isAdmin === true;
-                    setTimeout(function() {
-                        window.location.href = isAdmin ? 'admin.html' : 'dashboard.html';
-                    }, 500);
-                    return;
-                }
-                if (res.error) {
-                    // Supabase에서 실패 시 아래 데모 계정으로 폴백
-                }
-            } catch (err) {
-                console.warn('Supabase 로그인 시도 실패:', err);
-            }
-        }
+        console.log('[로그인] 시도:', email);
         
-        // 2) Supabase DB에서 먼저 확인 (다른 PC에서도 접속 가능하도록)
+        // 1) Supabase DB 사용자 테이블에서 먼저 확인 (다른 PC에서도 접속 가능)
         if (typeof supabase !== 'undefined' && supabase) {
+            console.log('[로그인] Supabase app_users 테이블 조회 중...');
+            
             supabase.from('app_users')
                 .select('*')
                 .eq('email', email)
                 .maybeSingle()
                 .then(function(result) {
-                    if (result.data && result.data.password_hash === password) {
-                        // Supabase에서 찾은 사용자 정보를 localStorage에 저장
-                        var companies = result.data.companies || [];
-                        var companyName = companies.length > 0 ? companies[0] : '';
+                    console.log('[로그인] Supabase 조회 결과:', result);
+                    
+                    if (result.error) {
+                        console.error('[로그인] Supabase 조회 에러:', result.error);
+                    }
+                    
+                    if (result.data) {
+                        console.log('[로그인] 사용자 발견:', result.data.email);
+                        console.log('[로그인] DB 비밀번호:', result.data.password_hash);
+                        console.log('[로그인] 입력 비밀번호:', password);
                         
-                        // DEMO_USERS에 추가 (다음 로그인부터 빠르게)
-                        if (typeof DEMO_USERS !== 'undefined') {
-                            DEMO_USERS[email] = {
-                                password: password,
-                                fullName: result.data.name,
-                                isAdmin: false,
-                                companyName: companyName,
-                                companies: companies,
-                                data: {
-                                    currentMonthRevenue: 0,
-                                    lastMonthRevenue: 0,
-                                    monthlyRevenue: [],
-                                    lastYearRevenue: [],
-                                    categories: [],
-                                    weeklyData: [],
-                                    quarterlyGrowth: [],
-                                    transactions: []
-                                }
-                            };
+                        if (result.data.password_hash === password) {
+                            console.log('[로그인] 비밀번호 일치 - 로그인 성공!');
                             
-                            // localStorage에도 저장
-                            try {
-                                var additions = JSON.parse(localStorage.getItem('demo_users_additions') || '{}');
-                                additions[email] = DEMO_USERS[email];
-                                localStorage.setItem('demo_users_additions', JSON.stringify(additions));
-                            } catch (e) {}
+                            // Supabase에서 찾은 사용자 정보를 localStorage에 저장
+                            var companies = result.data.companies || [];
+                            var companyName = companies.length > 0 ? companies[0] : '';
+                            
+                            // DEMO_USERS에 추가 (다음 로그인부터 빠르게)
+                            if (typeof DEMO_USERS !== 'undefined') {
+                                DEMO_USERS[email] = {
+                                    password: password,
+                                    fullName: result.data.name,
+                                    isAdmin: false,
+                                    companyName: companyName,
+                                    companies: companies,
+                                    data: {
+                                        currentMonthRevenue: 0,
+                                        lastMonthRevenue: 0,
+                                        monthlyRevenue: [],
+                                        lastYearRevenue: [],
+                                        categories: [],
+                                        weeklyData: [],
+                                        quarterlyGrowth: [],
+                                        transactions: []
+                                    }
+                                };
+                                
+                                // localStorage에도 저장
+                                try {
+                                    var additions = JSON.parse(localStorage.getItem('demo_users_additions') || '{}');
+                                    additions[email] = DEMO_USERS[email];
+                                    localStorage.setItem('demo_users_additions', JSON.stringify(additions));
+                                } catch (e) {}
+                            }
+                            
+                            Storage.setUser({
+                                email: email,
+                                companyName: companyName,
+                                fullName: result.data.name,
+                                remember: remember
+                            });
+                            showMessage('로그인 성공!', 'success');
+                            setTimeout(function() {
+                                window.location.href = 'dashboard.html';
+                            }, 500);
+                            return;
+                        } else {
+                            console.warn('[로그인] 비밀번호 불일치');
                         }
-                        
-                        Storage.setUser({
-                            email: email,
-                            companyName: companyName,
-                            fullName: result.data.name,
-                            remember: remember
-                        });
-                        showMessage('로그인 성공!', 'success');
-                        setTimeout(function() {
-                            window.location.href = 'dashboard.html';
-                        }, 500);
-                        return;
+                    } else {
+                        console.log('[로그인] Supabase에 사용자 없음, 로컬 확인...');
                     }
                     
                     // Supabase DB에 없으면 로컬 DEMO_USERS 확인
                     if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
+                        console.log('[로그인] 로컬 DEMO_USERS에서 사용자 발견');
                         var user = DEMO_USERS[email];
                         if (user.password === password) {
+                            console.log('[로그인] 로컬 로그인 성공!');
                             Storage.setUser({
                                 email: email,
                                 companyName: user.companyName || '',
@@ -115,13 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 window.location.href = (typeof isAdminUser === 'function' && isAdminUser(email)) ? 'admin.html' : 'dashboard.html';
                             }, 500);
                             return;
+                        } else {
+                            console.warn('[로그인] 로컬 비밀번호 불일치');
                         }
                     }
                     
                     showMessage('등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.', 'error');
                 })
                 .catch(function(err) {
-                    console.error('Supabase 사용자 조회 실패:', err);
+                    console.error('[로그인] Supabase 사용자 조회 실패:', err);
                     // Supabase 오류 시 로컬 DEMO_USERS로 폴백
                     if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
                         var user = DEMO_USERS[email];
@@ -144,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // 3) Supabase가 없으면 로컬 DEMO_USERS만 확인
+        // 2) Supabase가 없으면 로컬 DEMO_USERS만 확인
         if (typeof DEMO_USERS !== 'undefined' && DEMO_USERS[email]) {
             var user = DEMO_USERS[email];
             if (user.password === password) {
