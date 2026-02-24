@@ -1431,36 +1431,77 @@ function syncCompaniesToSupabase() {
 }
 
 function syncUsersToSupabase() {
-    if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
-    supabase.auth.getSession().then(function(sessionRes) {
-        if (!sessionRes.data || !sessionRes.data.session) return;
-        supabase.from('app_users').select('id').then(function(r) {
-            var ids = (r.data || []).map(function(x) { return x.id; });
-            if (ids.length === 0) {
-                if (usersData.length === 0) return;
-                // localStorage의 비밀번호 정보도 함께 저장
-                var additions = {};
-                try {
-                    var stored = localStorage.getItem('demo_users_additions');
-                    if (stored) additions = JSON.parse(stored);
-                } catch (e) {}
-                
-                var rows = usersData.map(function(u) {
-                    var userAuth = additions[u.email] || (DEMO_USERS[u.email] || {});
-                    return {
-                        name: u.name,
-                        email: u.email,
-                        password_hash: userAuth.password || '',
-                        companies: u.companies || [],
-                        join_date: u.joinDate || '',
-                        status: u.status || '활성'
-                    };
-                });
-                supabase.from('app_users').insert(rows).then(function() {}).catch(function(e) {
-                    console.warn('[Supabase] app_users 저장 실패:', e && e.message);
-                });
-                return;
-            }
+    if (typeof supabase === 'undefined' || !supabase) {
+        console.warn('[Supabase] 연결되지 않음');
+        return;
+    }
+    
+    if (usersData.length === 0) {
+        console.warn('[Supabase] 저장할 사용자 데이터 없음');
+        return;
+    }
+    
+    console.log('[Supabase] app_users 동기화 시작...', usersData.length, '명');
+    
+    // localStorage의 비밀번호 정보 가져오기
+    var additions = {};
+    try {
+        var stored = localStorage.getItem('demo_users_additions');
+        if (stored) additions = JSON.parse(stored);
+    } catch (e) {}
+    
+    // 각 사용자를 개별적으로 upsert
+    usersData.forEach(function(u) {
+        var userAuth = additions[u.email] || (DEMO_USERS[u.email] || {});
+        var userData = {
+            name: u.name,
+            email: u.email,
+            password_hash: userAuth.password || '',
+            companies: u.companies || [],
+            join_date: u.joinDate || new Date().toISOString().split('T')[0],
+            status: u.status || '활성'
+        };
+        
+        console.log('[Supabase] 사용자 저장:', u.email, '비밀번호:', userData.password_hash);
+        
+        // 이메일로 중복 확인 후 insert 또는 update
+        supabase.from('app_users')
+            .select('email')
+            .eq('email', u.email)
+            .maybeSingle()
+            .then(function(checkResult) {
+                if (checkResult.data) {
+                    // 이미 존재 - update
+                    supabase.from('app_users')
+                        .update(userData)
+                        .eq('email', u.email)
+                        .then(function(updateResult) {
+                            if (updateResult.error) {
+                                console.error('[Supabase] 사용자 업데이트 실패:', u.email, updateResult.error);
+                            } else {
+                                console.log('[Supabase] 사용자 업데이트 성공:', u.email);
+                            }
+                        });
+                } else {
+                    // 존재하지 않음 - insert
+                    supabase.from('app_users')
+                        .insert([userData])
+                        .then(function(insertResult) {
+                            if (insertResult.error) {
+                                console.error('[Supabase] 사용자 추가 실패:', u.email, insertResult.error);
+                            } else {
+                                console.log('[Supabase] 사용자 추가 성공:', u.email);
+                            }
+                        });
+                }
+            })
+            .catch(function(e) {
+                console.error('[Supabase] 사용자 확인 실패:', u.email, e);
+            });
+    });
+    
+    console.log('[Supabase] app_users 동기화 요청 완료');
+}
             supabase.from('app_users').delete().in('id', ids).then(function() {
                 if (usersData.length === 0) return;
                 var rows = usersData.map(function(u) {
