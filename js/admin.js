@@ -1444,9 +1444,10 @@ function loadAdminDataFromSupabase(retryCount) {
                     status: u.status || '활성'
                 });
                 
-                if (typeof DEMO_USERS !== 'undefined' && u.password_hash) {
+                // Supabase에 있는 사용자는 무조건 DEMO_USERS에 등록 (비밀번호 없어도)
+                if (typeof DEMO_USERS !== 'undefined') {
                     DEMO_USERS[u.email] = {
-                        password: u.password_hash,
+                        password: u.password_hash || '',
                         fullName: u.name,
                         isAdmin: u.is_admin === true,
                         companyName: companies.length > 0 ? companies[0] : '',
@@ -1534,13 +1535,15 @@ function syncUsersToSupabase() {
     // 각 사용자를 개별적으로 upsert
     usersData.forEach(function(u) {
         var userAuth = additions[u.email] || (DEMO_USERS[u.email] || {});
+        var isAdminFlag = userAuth.isAdmin === true || (typeof isAdminUser === 'function' && isAdminUser(u.email));
         var userData = {
             name: u.name,
             email: u.email,
             password_hash: userAuth.password || '',
             companies: u.companies || [],
             join_date: u.joinDate || new Date().toISOString().split('T')[0],
-            status: u.status || '활성'
+            status: u.status || '활성',
+            is_admin: isAdminFlag
         };
         
         console.log('[Supabase] 사용자 저장:', u.email, '비밀번호:', userData.password_hash);
