@@ -1647,6 +1647,26 @@ function saveNewAdmin() {
     } catch (e) {
         console.warn('추가 계정 저장 실패:', e);
     }
+    // Supabase에 즉시 저장
+    var sb = getSupabase();
+    if (sb) {
+        sb.from('app_users').select('email').eq('email', email).maybeSingle().then(function(chk) {
+            var userData = { name: name, email: email, password_hash: password, companies: [], join_date: new Date().toISOString().split('T')[0], status: '활성', is_admin: true };
+            if (chk.data) {
+                sb.from('app_users').update(userData).eq('email', email).then(function(r) {
+                    if (r.error) console.error('[Supabase] 관리자 업데이트 실패:', r.error);
+                    else console.log('[Supabase] 관리자 업데이트 완료:', email);
+                });
+            } else {
+                sb.from('app_users').insert([userData]).then(function(r) {
+                    if (r.error) console.error('[Supabase] 관리자 저장 실패:', r.error);
+                    else console.log('[Supabase] 관리자 저장 완료:', email);
+                });
+            }
+        }).catch(function(e) { console.error('[Supabase] 관리자 중복 확인 실패:', e); });
+    } else {
+        console.warn('[Supabase] 미연결 - 관리자를 localStorage에만 저장');
+    }
     closeAddAdminModal();
     updateAdminsTable();
     showMessage(`관리자 ${name}이(가) 추가되었습니다. 로그인 화면에서 해당 이메일로 로그인할 수 있습니다.`, 'success');
@@ -1889,12 +1909,13 @@ function saveUserChanges() {
         }
         
         const newId = usersData.length ? Math.max(...usersData.map(u => u.id)) + 1 : 1;
+        const joinDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
         usersData.push({
             id: newId,
             name: name,
             email: email,
             companies: [...currentEditingUser.companies],
-            joinDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+            joinDate: joinDate,
             status: status
         });
         saveUsersData();
@@ -1902,6 +1923,28 @@ function saveUserChanges() {
         updateUserSelects();
         updateCompaniesTable();
         updateStats();
+
+        // Supabase에 즉시 저장
+        var sb = getSupabase();
+        if (sb) {
+            var userData = { name: name, email: email, password_hash: password || '', companies: [...currentEditingUser.companies], join_date: joinDate, status: status, is_admin: false };
+            sb.from('app_users').select('email').eq('email', email).maybeSingle().then(function(chk) {
+                if (chk.data) {
+                    sb.from('app_users').update(userData).eq('email', email).then(function(r) {
+                        if (r.error) console.error('[Supabase] 사용자 업데이트 실패:', r.error);
+                        else console.log('[Supabase] 사용자 업데이트 완료:', email);
+                    });
+                } else {
+                    sb.from('app_users').insert([userData]).then(function(r) {
+                        if (r.error) console.error('[Supabase] 사용자 저장 실패:', r.error);
+                        else console.log('[Supabase] 사용자 저장 완료:', email);
+                    });
+                }
+            }).catch(function(e) { console.error('[Supabase] 사용자 중복 확인 실패:', e); });
+        } else {
+            console.warn('[Supabase] 미연결 - 사용자를 localStorage에만 저장');
+        }
+
         const msg = password && password.length >= 8 
             ? `${name} 사용자가 추가되었습니다. 로그인 화면에서 ${email} 로 로그인할 수 있습니다.`
             : `${name} 사용자가 추가되었습니다.`;
@@ -1987,6 +2030,20 @@ function saveUserChanges() {
         updateUserSelects();
         updateCompaniesTable();
         updateStats();
+
+        // Supabase에 즉시 저장 (수정 모드)
+        var sb = getSupabase();
+        if (sb) {
+            var updateData = { name: name, companies: [...currentEditingUser.companies], status: status };
+            if (password && password.length >= 8) updateData.password_hash = password;
+            sb.from('app_users').update(updateData).eq('email', email).then(function(r) {
+                if (r.error) console.error('[Supabase] 사용자 수정 실패:', r.error);
+                else console.log('[Supabase] 사용자 수정 완료:', email);
+            }).catch(function(e) { console.error('[Supabase] 사용자 수정 오류:', e); });
+        } else {
+            console.warn('[Supabase] 미연결 - 사용자 수정을 localStorage에만 저장');
+        }
+
         const msg = password && password.length >= 8
             ? `${name} 사용자 정보가 업데이트되었습니다. 비밀번호도 변경되었습니다.`
             : `${name} 사용자 정보가 업데이트되었습니다.`;
@@ -2096,6 +2153,18 @@ function saveCompanyEdit() {
         updateCompaniesTable();
         updateUserSelects();
         updateStats();
+
+        // Supabase에 즉시 저장
+        var sb = getSupabase();
+        if (sb) {
+            sb.from('companies').insert([{ name: name, number: number }]).then(function(r) {
+                if (r.error) console.error('[Supabase] 회사 추가 실패:', r.error);
+                else console.log('[Supabase] 회사 추가 완료:', name);
+            }).catch(function(e) { console.error('[Supabase] 회사 추가 오류:', e); });
+        } else {
+            console.warn('[Supabase] 미연결 - 회사를 localStorage에만 저장');
+        }
+
         closeEditCompanyModal();
         showMessage('회사가 추가되었습니다.', 'success');
         addActivityLog('회사 추가: ' + name);
@@ -2116,6 +2185,18 @@ function saveCompanyEdit() {
     updateCompaniesTable();
     updateUsersTable();
     updateUserSelects();
+
+    // Supabase에 즉시 수정
+    var sb = getSupabase();
+    if (sb) {
+        sb.from('companies').update({ name: name, number: number }).eq('name', oldName).then(function(r) {
+            if (r.error) console.error('[Supabase] 회사 수정 실패:', r.error);
+            else console.log('[Supabase] 회사 수정 완료:', name);
+        }).catch(function(e) { console.error('[Supabase] 회사 수정 오류:', e); });
+    } else {
+        console.warn('[Supabase] 미연결 - 회사 수정을 localStorage에만 저장');
+    }
+
     closeEditCompanyModal();
     showMessage('회사 정보가 수정되었습니다.', 'success');
     addActivityLog('회사 정보를 수정했습니다: ' + name);
