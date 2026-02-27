@@ -7,6 +7,24 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard-chart.css">
     <script src="js/supabase.min.js"></script>
+    <script>
+        (function() {
+            var SUPA_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
+            var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+            var lib = window.supabase;
+            window.supabaseClient = null;
+            if (lib && typeof lib.createClient === 'function') {
+                try {
+                    window.supabaseClient = lib.createClient(SUPA_URL, SUPA_KEY);
+                    console.log('[HEAD] Supabase 클라이언트 생성 완료');
+                } catch (e) {
+                    console.error('[HEAD] Supabase 클라이언트 생성 실패:', e);
+                }
+            } else {
+                console.error('[HEAD] supabase.min.js 로드 실패');
+            }
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -173,22 +191,7 @@
     </div>
     
     <script src="js/config.js"></script>
-    <script>
-        var SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
-        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
-        var _supabaseLib = window.supabase;
-        var supabase = null;
-        try {
-            if (_supabaseLib && _supabaseLib.createClient) {
-                supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase 초기화 완료');
-            } else {
-                console.warn('⚠️ Supabase CDN 미로드');
-            }
-        } catch (e) {
-            console.error('❌ Supabase 초기화 실패:', e);
-        }
-    </script>
+    <script>var supabase = window.supabaseClient;</script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

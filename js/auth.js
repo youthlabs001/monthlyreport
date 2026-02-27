@@ -23,11 +23,11 @@ function initAuth() {
         
         console.log('[로그인] 시도:', email);
         
-        // 1) Supabase DB 사용자 테이블에서 먼저 확인 (다른 PC에서도 접속 가능)
-        if (typeof supabase !== 'undefined' && supabase) {
+        var sb = window.supabaseClient || (typeof supabase !== 'undefined' ? supabase : null);
+        if (sb) {
             console.log('[로그인] Supabase app_users 테이블 조회 중...');
             
-            supabase.from('app_users')
+            sb.from('app_users')
                 .select('*')
                 .eq('email', email)
                 .maybeSingle()

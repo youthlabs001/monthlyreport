@@ -149,9 +149,9 @@ function loadCompanyData() {
 
 // Supabase에서 거래 데이터 로드
 function loadTransactionsFromSupabase() {
-    if (typeof supabase === 'undefined' || !supabase) {
+    var sb = window.supabaseClient || (typeof supabase !== 'undefined' ? supabase : null);
+    if (!sb) {
         console.warn('[Supabase] 연결 안 됨, localStorage만 사용');
-        // 빈 차트 표시
         destroyAllCharts();
         createRevenueChart({}, new Date().getFullYear(), new Date().getFullYear() - 1);
         return;
@@ -160,7 +160,7 @@ function loadTransactionsFromSupabase() {
     console.log(`[Supabase] ${currentCompany} 데이터 조회 중...`);
     console.log(`[Supabase] 필터 - user_email: ${currentUser.email}, company_name: ${currentCompany}`);
     
-    supabase.from('transactions')
+    sb.from('transactions')
         .select('*')
         .eq('user_email', currentUser.email)
         .eq('company_name', currentCompany)

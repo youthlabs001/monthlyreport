@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DB 연결 확인</title>
     <script src="js/supabase.min.js"></script>
+    <script>
+        (function() {
+            var SUPA_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
+            var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+            var lib = window.supabase;
+            window.supabaseClient = null;
+            if (lib && typeof lib.createClient === 'function') {
+                try {
+                    window.supabaseClient = lib.createClient(SUPA_URL, SUPA_KEY);
+                } catch (e) {}
+            }
+        })();
+    </script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
         .status { padding: 10px; margin: 8px 0; border-radius: 6px; }
@@ -57,9 +70,6 @@ ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;</pre>
 
     <script>
-        var SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
-        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
-        
         var logEl = document.getElementById('log');
         
         function log(msg, type) {
@@ -75,21 +85,11 @@ ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT f
             logEl.appendChild(pre);
         }
         
-        // 1) CDN 확인
-        var _sb = window.supabase;
-        if (_sb && _sb.createClient) {
-            log('✅ Supabase CDN 로드 성공', 'ok');
-        } else {
-            log('❌ Supabase CDN 로드 실패 - window.supabase: ' + typeof _sb, 'err');
-        }
-        
-        // 2) 클라이언트 생성
-        var sb = null;
-        try {
-            sb = _sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        var sb = window.supabaseClient;
+        if (sb) {
             log('✅ Supabase 클라이언트 생성 완료', 'ok');
-        } catch(e) {
-            log('❌ 클라이언트 생성 실패: ' + e.message, 'err');
+        } else {
+            log('❌ Supabase 클라이언트 생성 실패 - supabase.min.js 로드를 확인하세요', 'err');
         }
         
         if (sb) {

@@ -1,8 +1,12 @@
 // 관리자 페이지 기능
 
+function getSupabase() {
+    return window.supabaseClient || (typeof supabase !== 'undefined' ? supabase : null);
+}
+
 function initAdmin() {
     console.log('[initAdmin] 시작');
-    console.log('[initAdmin] supabase 상태:', typeof supabase !== 'undefined' && supabase ? '연결됨' : '미연결');
+    console.log('[initAdmin] supabase 상태:', getSupabase() ? '연결됨' : '미연결');
     
     // 로그인 및 관리자 권한 확인
     const currentUser = Storage.getUser();
@@ -568,8 +572,8 @@ function saveTransactionsToStorage(userEmail, companyName, transactions) {
     
     console.log(`[localStorage] ${companyName}에 ${transactions.length}건 저장됨`);
     
-    // 2) Supabase DB에 저장
-    if (typeof supabase !== 'undefined' && supabase) {
+    var sb = getSupabase();
+    if (sb) {
         const rows = transactions.map(function(t) {
             return {
                 user_email: userEmail,
@@ -583,7 +587,7 @@ function saveTransactionsToStorage(userEmail, companyName, transactions) {
             };
         });
         
-        supabase.from('transactions').insert(rows).then(function(result) {
+        sb.from('transactions').insert(rows).then(function(result) {
             if (result.error) {
                 console.error('[Supabase] 거래 데이터 저장 실패:', result.error);
                 showMessage('Supabase 저장 실패: ' + result.error.message, 'error');
@@ -1061,12 +1065,11 @@ function saveSheetsDataToSupabase() {
     
     showMessage('기존 데이터 삭제 중...', 'info');
     
-    // Supabase DB에 저장
-    if (typeof supabase !== 'undefined' && supabase) {
+    var sb = getSupabase();
+    if (sb) {
         console.log(`[Supabase] ${companyName}의 기존 데이터 삭제 시작...`);
         
-        // 1단계: 기존 데이터 삭제
-        supabase.from('transactions')
+        sb.from('transactions')
             .delete()
             .eq('user_email', userEmail)
             .eq('company_name', companyName)
@@ -1082,7 +1085,6 @@ function saveSheetsDataToSupabase() {
                 console.log(`[Supabase] 기존 데이터 삭제 완료`);
                 showMessage('새로운 데이터 저장 중...', 'info');
                 
-                // 2단계: 새 데이터 저장
                 const rows = transactions.map(function(t) {
                     return {
                         user_email: userEmail,
@@ -1099,7 +1101,7 @@ function saveSheetsDataToSupabase() {
                 console.log('[Supabase] 저장할 데이터 샘플:', rows[0]);
                 console.log(`[Supabase] 총 ${rows.length}건 저장 시작...`);
                 
-                supabase.from('transactions').insert(rows).then(function(result) {
+                sb.from('transactions').insert(rows).then(function(result) {
                     console.log('[Supabase] 저장 응답:', result);
                     
                     if (result.error) {
@@ -1353,31 +1355,37 @@ function saveCompaniesData() {
 }
 
 // Supabase에서 회사/사용자 로드 (세션 불필요 - anon 허용)
-function loadAdminDataFromSupabase() {
+function loadAdminDataFromSupabase(retryCount) {
+    retryCount = retryCount || 0;
     var statusEl = document.getElementById('contentSubtitle');
-    
-    if (typeof supabase === 'undefined' || !supabase) {
+    var sb = getSupabase();
+
+    if (!sb) {
+        if (retryCount < 3) {
+            console.log('[Supabase] 클라이언트 미준비, ' + (retryCount + 1) + '초 후 재시도...');
+            if (statusEl) statusEl.textContent = 'Supabase 연결 대기 중... (' + (retryCount + 1) + '/3)';
+            setTimeout(function() { loadAdminDataFromSupabase(retryCount + 1); }, 1000);
+            return;
+        }
         console.warn('[Supabase] 연결 안 됨, localStorage만 사용');
         if (statusEl) statusEl.textContent = '⚠️ Supabase 미연결 - 로컬 데이터만 표시됩니다';
         return;
     }
-    
+
     console.log('[Supabase] 관리자 데이터 로드 시작...');
     if (statusEl) statusEl.textContent = 'Supabase에서 데이터 로드 중...';
-    
+
     var loadedCompanies = false;
     var loadedUsers = false;
-    
+
     function checkComplete() {
         if (loadedCompanies && loadedUsers) {
             if (statusEl) statusEl.textContent = '등록된 사용자를 관리합니다';
-            // Google Sheets 사용자/회사 드롭다운도 갱신
             try { updateSheetsUserSelect(); } catch(e) {}
         }
     }
-    
-    // 회사 데이터 로드
-    supabase.from('companies').select('id,name,number').then(function(r) {
+
+    sb.from('companies').select('id,name,number').then(function(r) {
         console.log('[Supabase] companies 결과:', r);
         if (r.error) {
             console.error('[Supabase] companies 에러:', r.error);
@@ -1410,8 +1418,7 @@ function loadAdminDataFromSupabase() {
         checkComplete();
     });
     
-    // 사용자 데이터 로드
-    supabase.from('app_users').select('id,name,email,companies,join_date,status,password_hash,is_admin').then(function(r) {
+    sb.from('app_users').select('id,name,email,companies,join_date,status,password_hash,is_admin').then(function(r) {
         console.log('[Supabase] app_users 결과:', r);
         if (r.error) {
             console.error('[Supabase] app_users 에러:', r.error);
@@ -1470,26 +1477,27 @@ function loadAdminDataFromSupabase() {
 }
 
 function syncCompaniesToSupabase() {
-    if (typeof supabase === 'undefined' || !supabase) return;
+    var sb = getSupabase();
+    if (!sb) return;
     
     console.log('[Supabase] companies 동기화 시작...');
     
-    supabase.from('companies').select('id').then(function(r) {
+    sb.from('companies').select('id').then(function(r) {
         var ids = (r.data || []).map(function(x) { return x.id; });
         if (ids.length === 0) {
             if (availableCompanies.length === 0) return;
             var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
-            supabase.from('companies').insert(rows).then(function(res) {
+            sb.from('companies').insert(rows).then(function(res) {
                 console.log('[Supabase] companies 저장 완료:', res);
             }).catch(function(e) {
                 console.warn('[Supabase] companies 저장 실패:', e && e.message);
             });
             return;
         }
-        supabase.from('companies').delete().in('id', ids).then(function() {
+        sb.from('companies').delete().in('id', ids).then(function() {
             if (availableCompanies.length === 0) return;
             var rows = availableCompanies.map(function(c) { return { name: c.name, number: c.number }; });
-            supabase.from('companies').insert(rows).then(function(res) {
+            sb.from('companies').insert(rows).then(function(res) {
                 console.log('[Supabase] companies 저장 완료:', res);
             }).catch(function(e) {
                 console.warn('[Supabase] companies 저장 실패:', e && e.message);
@@ -1503,7 +1511,8 @@ function syncCompaniesToSupabase() {
 }
 
 function syncUsersToSupabase() {
-    if (typeof supabase === 'undefined' || !supabase) {
+    var sb = getSupabase();
+    if (!sb) {
         console.warn('[Supabase] 연결되지 않음');
         return;
     }
@@ -1536,15 +1545,13 @@ function syncUsersToSupabase() {
         
         console.log('[Supabase] 사용자 저장:', u.email, '비밀번호:', userData.password_hash);
         
-        // 이메일로 중복 확인 후 insert 또는 update
-        supabase.from('app_users')
+        sb.from('app_users')
             .select('email')
             .eq('email', u.email)
             .maybeSingle()
             .then(function(checkResult) {
                 if (checkResult.data) {
-                    // 이미 존재 - update
-                    supabase.from('app_users')
+                    sb.from('app_users')
                         .update(userData)
                         .eq('email', u.email)
                         .then(function(updateResult) {
@@ -1555,8 +1562,7 @@ function syncUsersToSupabase() {
                             }
                         });
                 } else {
-                    // 존재하지 않음 - insert
-                    supabase.from('app_users')
+                    sb.from('app_users')
                         .insert([userData])
                         .then(function(insertResult) {
                             if (insertResult.error) {
@@ -1574,12 +1580,12 @@ function syncUsersToSupabase() {
     
     console.log('[Supabase] app_users 동기화 요청 완료');
 }
-            supabase.from('app_users').delete().in('id', ids).then(function() {
+            sb.from('app_users').delete().in('id', ids).then(function() {
                 if (usersData.length === 0) return;
                 var rows = usersData.map(function(u) {
                     return { name: u.name, email: u.email, companies: u.companies || [], join_date: u.joinDate || '', status: u.status || '활성' };
                 });
-                supabase.from('app_users').insert(rows).then(function() {}).catch(function(e) {
+                sb.from('app_users').insert(rows).then(function() {}).catch(function(e) {
                     console.warn('[Supabase] app_users 저장 실패:', e && e.message);
                 });
             }).catch(function(e) {

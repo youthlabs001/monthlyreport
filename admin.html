@@ -8,6 +8,24 @@
     <link rel="stylesheet" href="css/dashboard-chart.css">
     <link rel="stylesheet" href="css/admin.css">
     <script src="js/supabase.min.js"></script>
+    <script>
+        (function() {
+            var SUPA_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
+            var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
+            var lib = window.supabase;
+            window.supabaseClient = null;
+            if (lib && typeof lib.createClient === 'function') {
+                try {
+                    window.supabaseClient = lib.createClient(SUPA_URL, SUPA_KEY);
+                    console.log('[HEAD] Supabase 클라이언트 생성 완료');
+                } catch (e) {
+                    console.error('[HEAD] Supabase 클라이언트 생성 실패:', e);
+                }
+            } else {
+                console.error('[HEAD] supabase.min.js 로드 실패 - window.supabase:', typeof lib);
+            }
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -616,31 +634,16 @@
 
     <script src="js/config.js"></script>
     <script>
-        var SUPABASE_URL = 'https://rmneisdjxjteysazzrhy.supabase.co';
-        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbmVpc2RqeGp0ZXlzYXp6cmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTk3MDYsImV4cCI6MjA4NTkzNTcwNn0.mACC4MRK_0Kpdr-iQyGT3LoLt-NiSDjXmNux_nWDWUs';
-        var _supabaseLib = window.supabase;
-        var supabase = null;
-        console.log('[Supabase Init] window.supabase 타입:', typeof _supabaseLib);
-        console.log('[Supabase Init] createClient 존재:', _supabaseLib && typeof _supabaseLib.createClient === 'function');
-        try {
-            if (_supabaseLib && _supabaseLib.createClient) {
-                supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase 클라이언트 생성 완료');
-                // 연결 테스트
-                supabase.from('companies').select('id', { count: 'exact', head: true }).then(function(r) {
-                    if (r.error) {
-                        console.error('❌ Supabase 연결 테스트 실패:', r.error.message);
-                        document.title = '관리자 - DB 연결 오류';
-                    } else {
-                        console.log('✅ Supabase 연결 테스트 성공');
-                    }
-                });
-            } else {
-                console.warn('⚠️ Supabase CDN 미로드 (_supabaseLib:', _supabaseLib, ')');
-                document.title = '관리자 - CDN 미로드';
-            }
-        } catch (e) {
-            console.error('❌ Supabase 초기화 실패:', e);
+        var supabase = window.supabaseClient;
+        console.log('[admin.html] supabase 클라이언트:', supabase ? '준비됨' : '미연결');
+        if (supabase) {
+            supabase.from('companies').select('id', { count: 'exact', head: true }).then(function(r) {
+                if (r.error) {
+                    console.error('❌ Supabase 연결 테스트 실패:', r.error.message);
+                } else {
+                    console.log('✅ Supabase 연결 테스트 성공');
+                }
+            });
         }
     </script>
     <script src="js/admin.js"></script>
