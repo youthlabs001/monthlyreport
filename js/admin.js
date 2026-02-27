@@ -1580,22 +1580,6 @@ function syncUsersToSupabase() {
     
     console.log('[Supabase] app_users 동기화 요청 완료');
 }
-            sb.from('app_users').delete().in('id', ids).then(function() {
-                if (usersData.length === 0) return;
-                var rows = usersData.map(function(u) {
-                    return { name: u.name, email: u.email, companies: u.companies || [], join_date: u.joinDate || '', status: u.status || '활성' };
-                });
-                sb.from('app_users').insert(rows).then(function() {}).catch(function(e) {
-                    console.warn('[Supabase] app_users 저장 실패:', e && e.message);
-                });
-            }).catch(function(e) {
-                console.warn('[Supabase] app_users 삭제 실패:', e && e.message);
-            });
-        }).catch(function(e) {
-            console.warn('[Supabase] app_users id 조회 실패:', e && e.message);
-        });
-    });
-}
 
 var usersData = loadUsersData();
 var availableCompanies = loadCompaniesData();
